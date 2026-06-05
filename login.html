@@ -540,17 +540,53 @@
 <script src="js/firebase.js"></script>
 <script>
 // =============================================
-//  초기화: localStorage에서 USERS_DB 복원
+//  초기화: Firebase 실시간 동기화 시작
+//  - firebase:ready 이벤트 후 startRealtimeSync 호출
+//  - 그 전까지는 localStorage fallback 사용
 // =============================================
 (function() {
+  // 1) localStorage fallback으로 먼저 채움 (동기, 즉시)
   try {
-    if (typeof loadUsersDB === 'function') loadUsersDB();
-  } catch(e) {
-    console.warn('[Login] USERS_DB 복원 실패, 기본값 사용:', e);
+    const raw = localStorage.getItem('IDP_USERS_DB');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length > 0) {
+        USERS_DB = arr;
+      }
+    }
+  } catch(e) {}
+  console.log('[Login] localStorage USERS_DB:', USERS_DB.length, '명');
+
+  // 2) Firebase 준비되면 실시간 동기화 시작 → USERS_DB 최신화
+  function _startLoginSync() {
+    if (typeof startRealtimeSync === 'function') {
+      startRealtimeSync(
+        function(users) {
+          console.log('[Login] Firebase USERS_DB 동기화:', users.length, '명');
+        },
+        null, null
+      );
+    } else {
+      // startRealtimeSync 없으면 직접 onSnapshot
+      if (typeof waitForFirebase === 'function') {
+        waitForFirebase().then(function(db) {
+          db.collection('idp_users').onSnapshot(function(snap) {
+            if (snap.docs.length > 0) {
+              USERS_DB = snap.docs.map(function(d) { return d.data(); });
+              console.log('[Login] Firebase USERS_DB 직접 동기화:', USERS_DB.length, '명');
+            }
+          });
+        }).catch(function(e) {
+          console.warn('[Login] Firebase 동기화 실패:', e);
+        });
+      }
+    }
   }
-  // 디버그: 등록된 사용자 수 확인
-  if (typeof USERS_DB !== 'undefined') {
-    console.log('[Login] USERS_DB 로드 완료:', USERS_DB.length, '명');
+
+  if (typeof _fsReady !== 'undefined' && _fsReady) {
+    _startLoginSync();
+  } else {
+    document.addEventListener('firebase:ready', _startLoginSync, { once: true });
   }
 })();
 // =============================================
@@ -567,10 +603,11 @@ function switchTab(tab) {
 // =============================================
 //  로그인
 // =============================================
-function doLogin() {
+async function doLogin() {
   const email = (document.getElementById('loginEmail').value || '').trim();
   const pw    = document.getElementById('loginPw').value || '';
   const errEl = document.getElementById('loginError');
+  const btn   = document.querySelector('#loginForm button[type="submit"]');
 
   // 입력값 기본 검증
   if (!email || !pw) {
@@ -579,54 +616,72 @@ function doLogin() {
     return;
   }
 
-  // USERS_DB는 firebase.js onSnapshot으로 이미 최신 상태 — 재로드 불필요
-  // (localStorage 재로드 시 Firebase 신규 가입자가 누락되는 문제 방지)
-
-  // 사용자 검색 (대소문자 구분 없이 이메일 비교)
-  let user = null;
-  if (typeof USERS_DB !== 'undefined' && Array.isArray(USERS_DB)) {
-    user = USERS_DB.find(u =>
-      u && u.email && u.password &&
-      u.email.toLowerCase() === email.toLowerCase() &&
-      u.password === pw
-    );
-  }
-
-  if (!user) {
-    // 추가 디버그: 이메일만 일치하는 경우 패스워드 문제 안내
-    let emailMatch = false;
-    if (typeof USERS_DB !== 'undefined' && Array.isArray(USERS_DB)) {
-      emailMatch = USERS_DB.some(u => u && u.email && u.email.toLowerCase() === email.toLowerCase());
-    }
-    if (emailMatch) {
-      errEl.textContent = '비밀번호가 일치하지 않습니다.';
-    } else {
-      errEl.textContent = '등록되지 않은 이메일입니다. 이메일을 확인해주세요.';
-    }
-    errEl.style.display = 'block';
-    const pwInput = document.getElementById('loginPw');
-    if (pwInput) {
-      pwInput.style.borderColor = 'var(--danger)';
-      setTimeout(() => { pwInput.style.borderColor = ''; }, 1500);
-    }
-    return;
-  }
-
+  // 버튼 로딩 상태
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 확인 중...'; }
   errEl.style.display = 'none';
 
-  // 세션에 사용자 정보 저장
   try {
+    // ── 1단계: 메모리(USERS_DB)에서 먼저 찾기 ──
+    let user = _findUser(email, pw, USERS_DB);
+
+    // ── 2단계: 메모리에 없으면 Firebase에서 직접 조회 ──
+    if (!user && typeof waitForFirebase === 'function') {
+      try {
+        const db = await waitForFirebase(6000);
+        const snap = await db.collection('idp_users').get();
+        if (!snap.empty) {
+          const allUsers = snap.docs.map(d => d.data());
+          // 인메모리도 최신화
+          USERS_DB = allUsers;
+          console.log('[Login] Firebase 직접 조회:', allUsers.length, '명');
+          user = _findUser(email, pw, allUsers);
+        }
+      } catch(fbErr) {
+        console.warn('[Login] Firebase 조회 실패, 메모리만 사용:', fbErr);
+      }
+    }
+
+    if (!user) {
+      // 이메일만 일치하는 경우 패스워드 문제 안내
+      const emailMatch = (USERS_DB || []).some(
+        u => u && u.email && u.email.toLowerCase() === email.toLowerCase()
+      );
+      errEl.textContent = emailMatch
+        ? '비밀번호가 일치하지 않습니다.'
+        : '등록되지 않은 이메일입니다. 이메일을 확인해주세요.';
+      errEl.style.display = 'block';
+      const pwInput = document.getElementById('loginPw');
+      if (pwInput) {
+        pwInput.style.borderColor = 'var(--danger)';
+        setTimeout(() => { pwInput.style.borderColor = ''; }, 1500);
+      }
+      return;
+    }
+
+    // 세션에 사용자 정보 저장
     sessionStorage.setItem('idp_user', JSON.stringify(user));
+
+    // 페이지 이동
+    const dest = (user.role === 'admin') ? 'admin.html' : 'index.html';
+    window.location.href = dest;
+
   } catch(e) {
-    console.error('[Login] sessionStorage 저장 실패:', e);
+    console.error('[Login] 오류:', e);
     errEl.textContent = '로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.';
     errEl.style.display = 'block';
-    return;
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 로그인'; }
   }
+}
 
-  // 페이지 이동 — role을 USERS_DB 최신값 기준으로 판단
-  const dest = (user.role === 'admin') ? 'admin.html' : 'index.html';
-  window.location.href = dest;
+// 사용자 배열에서 email+password 일치 사용자 반환
+function _findUser(email, pw, arr) {
+  if (!Array.isArray(arr)) return null;
+  return arr.find(u =>
+    u && u.email && u.password &&
+    u.email.toLowerCase() === email.toLowerCase() &&
+    u.password === pw
+  ) || null;
 }
 
 // =============================================
@@ -937,13 +992,13 @@ function doSignup() {
   if (!emailVerified) { showSignupError('이메일 인증을 완료해주세요.'); return; }
   if (pw.length < 6)  { showSignupError('비밀번호는 6자 이상이어야 합니다.'); return; }
   if (pw !== pw2)     { showSignupError('비밀번호가 일치하지 않습니다.'); return; }
-  // 관리자 계정 이메일로는 회원가입 불가 (관리자는 시스템에서 직접 부여)
+  // 관리자 계정 이메일로는 회원가입 불가
   const adminUser = typeof DEFAULT_USERS_DB !== 'undefined'
     ? DEFAULT_USERS_DB.find(u => u.role === 'admin') : null;
   if (adminUser && email.toLowerCase() === adminUser.email.toLowerCase()) {
     showSignupError('해당 이메일은 사용할 수 없습니다. 관리자에게 문의하세요.'); return;
   }
-  if (USERS_DB.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+  if ((USERS_DB || []).find(u => u.email && u.email.toLowerCase() === email.toLowerCase())) {
     showSignupError('이미 등록된 이메일입니다.'); return;
   }
 
@@ -958,21 +1013,31 @@ function doSignup() {
     dept, position, band, role,
     joinDate: '2026-' + new Date().toISOString().slice(5, 10)
   };
+
+  // ── 1) 인메모리 USERS_DB에 즉시 추가 (로그인에서 바로 찾을 수 있게)
+  if (!Array.isArray(USERS_DB)) USERS_DB = [];
   USERS_DB.push(newUser);
-  // Firebase에 즉시 저장 (saveOneUser가 있으면 단일 저장, 없으면 전체 저장)
+
+  // ── 2) localStorage에도 즉시 저장 (fallback 보장)
+  try { localStorage.setItem('IDP_USERS_DB', JSON.stringify(USERS_DB)); } catch(e) {}
+
+  // ── 3) Firebase에 비동기 저장
   if (typeof saveOneUser === 'function') {
-    saveOneUser(newUser);
+    saveOneUser(newUser).catch(e => console.warn('[Signup] Firebase 저장 실패:', e));
   } else if (typeof saveUsersDB === 'function') {
     saveUsersDB();
   }
+
   document.getElementById('btnSignup').disabled = true;
 
   // 가입 성공 메시지 표시
   document.getElementById('signupSuccess').style.display = 'block';
+  console.log('[Signup] 가입 완료:', newUser.email, '/ USERS_DB:', USERS_DB.length, '명');
 
   setTimeout(() => {
     document.getElementById('signupSuccess').style.display = 'none';
     switchTab('login');
+    // 이메일 자동 입력
     document.getElementById('loginEmail').value = email;
     // 폼 리셋
     resetSignupForm();
