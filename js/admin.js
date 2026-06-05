@@ -1713,6 +1713,43 @@ function _renderSysBandTable() {
   </table>`;
 }
 
+// ── Firebase DB 완전 초기화 ─────────────────────────
+async function admForceResetFirebase() {
+  if (!confirm(
+    '⚠️ Firebase DB를 완전히 초기화합니다.\n\n' +
+    '• 기존 사용자 데이터 전체 삭제\n' +
+    '• data.js 기본 사용자(김팀원·이매니저·한파트·유팀장)로 재등록\n' +
+    '• IDP·피드백 등 모든 활동 데이터 삭제\n\n' +
+    '이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?'
+  )) return;
+
+  const logEl = document.getElementById('firebaseResetLog');
+  if (logEl) {
+    logEl.style.display = 'block';
+    logEl.innerHTML = '⏳ 초기화 시작...';
+  }
+
+  const addLog = (msg) => {
+    console.log('[AdminReset]', msg);
+    if (logEl) logEl.innerHTML += '<br>' + msg;
+  };
+
+  if (typeof forceResetFirebaseDB !== 'function') {
+    addLog('❌ forceResetFirebaseDB 함수를 찾을 수 없습니다. firebase.js 파일을 확인하세요.');
+    return;
+  }
+
+  const result = await forceResetFirebaseDB(addLog);
+
+  if (result && result.success) {
+    admShowToast('✅ Firebase DB 초기화 완료! 5초 후 페이지가 새로고침됩니다.');
+    if (logEl) logEl.innerHTML += '<br><strong style="color:#059669">✅ 완료! 페이지 새로고침 중...</strong>';
+    setTimeout(() => window.location.reload(), 5000);
+  } else {
+    admShowToast('❌ 초기화 실패 - 콘솔 로그를 확인하세요.');
+  }
+}
+
 function admResetActivityData() {
   if (!confirm('⚠️ IDP, 피드백, 진단 이력, 알림 데이터를 모두 삭제합니다.\n직원 계정 정보는 유지됩니다.\n\n계속하시겠습니까?')) return;
   // localStorage DB 키 삭제

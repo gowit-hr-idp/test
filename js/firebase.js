@@ -621,3 +621,88 @@ function stopRealtimeSync() {
   _realtimeUnsubscribers.forEach(fn => fn && fn());
   _realtimeUnsubscribers = [];
 }
+
+// =====================================================
+//  Firebase DB 강제 초기화
+//  - idp_users 컬렉션 전체 삭제 후 DEFAULT_USERS_DB 재업로드
+//  - idp_main_db/main 문서 초기화 (IDP_LIST 등 빈 배열)
+//  - idp_band 문서 초기화 (BAND_DB / POSITION_DB / ORG_DB)
+// =====================================================
+
+/**
+ * Firebase DB를 data.js 기본값으로 완전 초기화
+ * admin 페이지에서만 호출
+ */
+async function forceResetFirebaseDB(onProgress) {
+  const log = (msg) => {
+    console.log('[FirebaseReset]', msg);
+    if (typeof onProgress === 'function') onProgress(msg);
+  };
+
+  try {
+    const db = await waitForFirebase();
+    log('Firebase 연결 확인 ✅');
+
+    // ── 1) idp_users 전체 삭제 ──────────────────────────
+    log('기존 사용자 DB 삭제 중...');
+    const userSnap = await db.collection(FS_COL.USERS).get();
+    const delBatch = db.batch();
+    userSnap.docs.forEach(d => delBatch.delete(d.ref));
+    await delBatch.commit();
+    log(`기존 사용자 ${userSnap.size}명 삭제 완료`);
+
+    // ── 2) DEFAULT_USERS_DB 업로드 ──────────────────────
+    log('기본 사용자 DB 업로드 중...');
+    const users = typeof DEFAULT_USERS_DB !== 'undefined' ? DEFAULT_USERS_DB : USERS_DB;
+    const addBatch = db.batch();
+    users.forEach(u => {
+      const ref = db.collection(FS_COL.USERS).doc(u.id);
+      addBatch.set(ref, u);
+    });
+    await addBatch.commit();
+    USERS_DB = users.map(u => ({ ...u }));
+    log(`기본 사용자 ${users.length}명 업로드 완료 ✅`);
+
+    // ── 3) idp_main_db/main 초기화 ──────────────────────
+    log('메인 데이터(IDP, 피드백 등) 초기화 중...');
+    await db.collection(FS_COL.MAIN).doc('main').set({
+      IDP_LIST: [],
+      IDP_CUSTOM_APPROVAL_LINES: [],
+      ONE_ON_ONE_LIST: [],
+      OO1_SCHEDULES: [],
+      EVIDENCE_LIST: [],
+      FEEDBACK_LIST: [],
+      FILE_LIBRARY: [],
+      ACTIVITY_EVALS: {},
+      NOTIFICATION_LIST: [],
+      DIAG_HISTORY: [],
+      _savedAt: new Date().toISOString(),
+      _resetAt: new Date().toISOString()
+    });
+    // 전역 변수도 초기화
+    IDP_LIST = []; IDP_CUSTOM_APPROVAL_LINES = [];
+    ONE_ON_ONE_LIST = []; OO1_SCHEDULES = [];
+    EVIDENCE_LIST = []; FEEDBACK_LIST = [];
+    FILE_LIBRARY = []; ACTIVITY_EVALS = {};
+    NOTIFICATION_LIST = []; DIAG_HISTORY = [];
+    log('메인 데이터 초기화 완료 ✅');
+
+    // ── 4) idp_band 초기화 (밴드/직책/조직) ─────────────
+    log('밴드/직책/조직 데이터 초기화 중...');
+    const defaultBands   = typeof DEFAULT_BANDS     !== 'undefined' ? DEFAULT_BANDS     : [];
+    const defaultPos     = typeof DEFAULT_POSITIONS !== 'undefined' ? DEFAULT_POSITIONS : [];
+    const defaultOrg     = typeof DEFAULT_ORG_NODES !== 'undefined' ? DEFAULT_ORG_NODES : [];
+    await db.collection(FS_COL.BAND).doc('bands')    .set({ list: defaultBands, _savedAt: new Date().toISOString() });
+    await db.collection(FS_COL.BAND).doc('positions').set({ list: defaultPos,   _savedAt: new Date().toISOString() });
+    await db.collection(FS_COL.BAND).doc('org')      .set({ list: defaultOrg,   _savedAt: new Date().toISOString() });
+    log('밴드/직책/조직 초기화 완료 ✅');
+
+    log('🎉 Firebase DB 초기화 완료! 페이지를 새로고침하세요.');
+    return { success: true };
+
+  } catch(e) {
+    console.error('[FirebaseReset] 초기화 실패:', e);
+    if (typeof onProgress === 'function') onProgress('❌ 오류 발생: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
