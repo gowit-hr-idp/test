@@ -58,6 +58,7 @@
       <li class="adm-nav-item" data-page="adm-eval"><a href="#"><i class="fas fa-star"></i><span>평가 관리</span></a></li>
       <li class="adm-nav-item adm-nav-sub" data-page="adm-eval-weights"><a href="#"><i class="fas fa-balance-scale"></i><span>평가 비중 설정</span></a></li>
       <li class="adm-nav-item adm-nav-sub" data-page="adm-eval-scoring"><a href="#"><i class="fas fa-sliders-h"></i><span>점수 산정 방식</span></a></li>
+      <li class="adm-nav-item" data-page="adm-approval-line"><a href="#"><i class="fas fa-code-branch"></i><span>합의라인 관리</span></a></li>
       <li class="adm-nav-item" data-page="adm-system"><a href="#"><i class="fas fa-database"></i><span>시스템 관리</span></a></li>
     </ul>
   </nav>
@@ -816,6 +817,21 @@
         </div>
       </div>
 
+      <!-- 합의라인 관리 탭 안내 -->
+      <div class="adm-card" style="border:2px solid #0EA5E9;grid-column:1/-1">
+        <div class="adm-card-header" style="background:#F0F9FF;margin:-20px -20px 20px;padding:16px 20px;border-radius:12px 12px 0 0">
+          <h3 style="color:#0369A1"><i class="fas fa-code-branch"></i> 합의라인 관리</h3>
+        </div>
+        <p style="font-size:13px;color:#374151;line-height:1.8;margin-bottom:16px">
+          조직 단위별 합의라인 설정 및 기존 IDP 합의라인 재생성 기능은<br>
+          전용 <strong>합의라인 관리</strong> 탭에서 관리할 수 있습니다.
+        </p>
+        <button onclick="navigateAdm('adm-approval-line')"
+          style="background:#0369A1;color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+          <i class="fas fa-arrow-right"></i> 합의라인 관리 탭으로 이동
+        </button>
+      </div>
+
       <!-- 데이터 초기화 -->
       <div class="adm-card" style="border:2px solid #FEE2E2">
         <div class="adm-card-header" style="background:#FEF2F2;margin:-20px -20px 20px;padding:16px 20px;border-radius:12px 12px 0 0">
@@ -866,6 +882,102 @@
           </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ⑧ 합의라인 관리 -->
+  <section class="adm-page" id="page-adm-approval-line">
+    <div class="adm-page-header">
+      <div>
+        <h1>합의라인 관리</h1>
+        <p>조직 단위별 IDP 합의라인을 직접 설정합니다. 커스텀 설정이 없는 경우 밴드 기반 자동 규칙이 적용됩니다.</p>
+      </div>
+      <button class="adm-btn-primary" onclick="admApvShowForm(null)">
+        <i class="fas fa-plus"></i> 새 합의라인 추가
+      </button>
+    </div>
+
+    <!-- 안내 배너 -->
+    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#1E40AF;line-height:1.8">
+      <i class="fas fa-circle-info" style="margin-right:6px"></i>
+      <strong>우선순위:</strong> 파트 &gt; 팀 &gt; 사업부 &gt; 전체 순으로 적용됩니다.
+      커스텀 라인이 없으면 <strong>밴드 자동 규칙(C1·C2→파트장→팀장 / C3파트장→팀장→사업부장 / C4팀장→사업부장→본부장)</strong>이 사용됩니다.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start">
+
+      <!-- 좌: 목록 -->
+      <div class="adm-card" style="padding:0;overflow:hidden">
+        <div class="adm-card-header" style="padding:16px 20px;border-bottom:1px solid #F3F4F6">
+          <h3 style="margin:0"><i class="fas fa-list" style="color:#6366f1;margin-right:6px"></i> 설정된 합의라인 목록</h3>
+          <span id="apvLineCount" style="font-size:12px;color:#6B7280;background:#F3F4F6;padding:3px 10px;border-radius:99px">0건</span>
+        </div>
+        <div id="apvLineList" style="min-height:200px">
+          <div style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">
+            <i class="fas fa-code-branch" style="font-size:28px;margin-bottom:10px;display:block;opacity:.4"></i>
+            설정된 합의라인이 없습니다.<br>
+            <span style="font-size:12px">밴드 자동 규칙이 적용됩니다.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우: 편집 폼 -->
+      <div class="adm-card" id="apvFormCard">
+        <div class="adm-card-header" style="margin:-20px -20px 20px;padding:16px 20px;background:#F8FAFF;border-radius:12px 12px 0 0;border-bottom:1px solid #E8EEFF">
+          <h3 style="margin:0;color:#3730A3" id="apvFormTitle"><i class="fas fa-plus-circle" style="margin-right:6px"></i> 새 합의라인 추가</h3>
+        </div>
+        <input type="hidden" id="apvEditId">
+
+        <!-- 적용 범위 -->
+        <div class="adm-form-group" style="margin-bottom:14px">
+          <label style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;display:block">적용 범위 <span style="color:#EF4444">*</span></label>
+          <div style="display:flex;gap:8px">
+            <select class="adm-input" id="apvOrgType" style="width:110px;flex-shrink:0" onchange="admApvOrgTypeChange()">
+              <option value="all">전체</option>
+              <option value="bizUnit">사업부</option>
+              <option value="team">팀</option>
+              <option value="part">파트</option>
+            </select>
+            <input type="text" class="adm-input" id="apvOrgUnit" placeholder="전체 적용 (입력 불필요)" style="flex:1" disabled>
+          </div>
+          <div id="apvOrgPresets" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+
+        <!-- 합의 단계 -->
+        <div class="adm-form-group" style="margin-bottom:14px">
+          <label style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;display:block">합의 단계 <span style="color:#EF4444">*</span></label>
+          <div id="apvStepsWrap" style="display:flex;flex-direction:column;gap:8px"></div>
+          <button class="adm-btn-outline" style="width:100%;margin-top:8px;font-size:12px;padding:8px" onclick="admApvAddStep()">
+            <i class="fas fa-plus"></i> 합의자 추가
+          </button>
+        </div>
+
+        <!-- 액션 -->
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="adm-btn-primary" style="flex:1" onclick="admApvSave()">
+            <i class="fas fa-save"></i> 저장
+          </button>
+          <button class="adm-btn-outline" onclick="admApvReset()">
+            <i class="fas fa-undo"></i> 초기화
+          </button>
+        </div>
+
+        <!-- 구분선 + 일괄 재적용 -->
+        <hr style="border:none;border-top:1px solid #F3F4F6;margin:20px -20px">
+        <div style="padding:0">
+          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">
+            <i class="fas fa-arrows-rotate" style="color:#0369A1;margin-right:5px"></i> 기존 IDP 일괄 재적용
+          </div>
+          <p style="font-size:12px;color:#6B7280;line-height:1.7;margin-bottom:10px">
+            현재 <strong>합의 요청·진행중</strong> 상태의 IDP 합의라인을<br>위의 최신 설정으로 강제 재생성합니다.
+          </p>
+          <button class="adm-btn-outline" style="width:100%;font-size:12px;color:#0369A1;border-color:#BAE6FD" onclick="admApvRebuildAll()">
+            <i class="fas fa-arrows-rotate"></i> 기존 IDP 합의라인 재생성
+          </button>
+          <div id="apvRebuildLog" style="margin-top:8px;font-size:12px;color:#059669;display:none"></div>
+        </div>
+      </div>
+
     </div>
   </section>
 

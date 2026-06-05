@@ -579,12 +579,8 @@ function doLogin() {
     return;
   }
 
-  // USERS_DB 최신화: localStorage에서 다시 로드
-  try {
-    if (typeof loadUsersDB === 'function') loadUsersDB();
-  } catch(e) {
-    console.warn('[doLogin] USERS_DB 재로드 실패:', e);
-  }
+  // USERS_DB는 firebase.js onSnapshot으로 이미 최신 상태 — 재로드 불필요
+  // (localStorage 재로드 시 Firebase 신규 가입자가 누락되는 문제 방지)
 
   // 사용자 검색 (대소문자 구분 없이 이메일 비교)
   let user = null;
@@ -963,7 +959,12 @@ function doSignup() {
     joinDate: '2026-' + new Date().toISOString().slice(5, 10)
   };
   USERS_DB.push(newUser);
-  if (typeof saveUsersDB === 'function') saveUsersDB(); // localStorage 영구 저장
+  // Firebase에 즉시 저장 (saveOneUser가 있으면 단일 저장, 없으면 전체 저장)
+  if (typeof saveOneUser === 'function') {
+    saveOneUser(newUser);
+  } else if (typeof saveUsersDB === 'function') {
+    saveUsersDB();
+  }
   document.getElementById('btnSignup').disabled = true;
 
   // 가입 성공 메시지 표시
