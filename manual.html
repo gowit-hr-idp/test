@@ -1,0 +1,2537 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GoWIT IDP 사용 가이드</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+<script src="js/data.js"></script>
+<style>
+:root {
+  --primary:#4F6EF7; --primary-dark:#3451d1; --primary-light:#EEF2FF;
+  --secondary:#6C47FF; --success:#22C55E; --warning:#F59E0B;
+  --danger:#EF4444; --admin:#7C3AED; --admin-light:#F5F3FF;
+  --dark:#1A1D2E; --gray:#6B7280; --gray-light:#9CA3AF;
+  --border:#E5E7EB; --border-light:#F3F4F6;
+  --bg:#F8FAFF; --bg-card:#FFFFFF;
+  --sidebar-w:270px; --header-h:56px;
+  --radius:10px; --shadow:0 1px 4px rgba(0,0,0,0.07);
+  --shadow-md:0 4px 16px rgba(79,110,247,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Noto Sans KR',sans-serif;
+  background:var(--bg); color:var(--dark);
+  font-size:14px; line-height:1.75;
+}
+
+/* ────────────── TOP HEADER ────────────── */
+.g-header{
+  position:fixed; top:0; left:0; right:0; z-index:200;
+  height:var(--header-h);
+  background:#fff;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center;
+  padding:0 20px; gap:16px;
+  box-shadow:0 1px 6px rgba(0,0,0,0.06);
+}
+.g-logo{
+  display:flex; align-items:center; gap:10px;
+  font-size:15px; font-weight:800; color:var(--primary);
+  text-decoration:none; white-space:nowrap;
+  flex-shrink:0;
+}
+.g-logo-badge{
+  background:var(--primary); color:#fff;
+  font-size:10px; font-weight:700;
+  padding:2px 7px; border-radius:4px;
+  letter-spacing:.4px;
+}
+.g-search-wrap{
+  flex:1; max-width:460px; position:relative;
+}
+.g-search{
+  width:100%; height:36px;
+  border:1.5px solid var(--border);
+  border-radius:8px;
+  padding:0 14px 0 36px;
+  font-size:13px; font-family:inherit;
+  background:#F9FAFB;
+  transition:all .2s;
+  outline:none;
+}
+.g-search:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(79,110,247,.1);}
+.g-search-icon{
+  position:absolute; left:11px; top:50%;
+  transform:translateY(-50%);
+  color:var(--gray-light); font-size:13px;
+  pointer-events:none;
+}
+.search-results{
+  position:absolute; top:calc(100% + 6px); left:0; right:0;
+  background:#fff; border:1.5px solid var(--border);
+  border-radius:10px; box-shadow:var(--shadow-md);
+  max-height:360px; overflow-y:auto; z-index:300;
+  display:none;
+}
+.search-results.show{display:block;}
+.sr-item{
+  padding:10px 16px; cursor:pointer;
+  border-bottom:1px solid var(--border-light);
+  display:flex; align-items:flex-start; gap:10px;
+}
+.sr-item:last-child{border-bottom:none;}
+.sr-item:hover{background:var(--primary-light);}
+.sr-icon{color:var(--primary);font-size:12px;margin-top:3px;flex-shrink:0;}
+.sr-title{font-size:13px;font-weight:600;color:var(--dark);margin-bottom:2px;}
+.sr-path{font-size:11px;color:var(--gray-light);}
+.sr-highlight{color:var(--primary);font-weight:700;}
+.g-header-right{
+  display:flex; align-items:center; gap:8px;
+  flex-shrink:0; margin-left:auto;
+}
+.g-btn{
+  height:34px; padding:0 14px;
+  border-radius:8px; font-size:12.5px; font-weight:600;
+  cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+  text-decoration:none; white-space:nowrap;
+  border:1.5px solid var(--border); background:#fff; color:var(--dark);
+  transition:all .15s;
+}
+.g-btn:hover{border-color:var(--primary);color:var(--primary);}
+.g-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+.g-btn.primary:hover{background:var(--primary-dark);}
+.g-search-btn{display:none;}   /* 기본: 숨김. 480px 이하에서만 표시 */
+.g-sidebar-toggle{
+  display:none; width:36px; height:36px;
+  border-radius:8px; border:1.5px solid var(--border);
+  background:#fff; cursor:pointer;
+  align-items:center; justify-content:center;
+  font-size:14px; color:var(--dark);
+}
+
+/* ────────────── SIDEBAR ────────────── */
+.g-sidebar{
+  position:fixed; top:var(--header-h); left:0; bottom:0;
+  width:var(--sidebar-w); z-index:100;
+  background:#fff; border-right:1px solid var(--border);
+  overflow-y:auto; overflow-x:hidden;
+  transition:transform .25s ease;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border) transparent;
+}
+.g-sidebar::-webkit-scrollbar{width:4px;}
+.g-sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+.g-sidebar.collapsed{transform:translateX(-100%);}
+
+.sb-section{padding:16px 0 8px;}
+.sb-section:not(:last-child){border-bottom:1px solid var(--border-light);}
+.sb-label{
+  padding:0 18px 8px;
+  font-size:10.5px; font-weight:700;
+  color:var(--gray-light); letter-spacing:.8px;
+  text-transform:uppercase;
+}
+.sb-group{margin-bottom:2px;}
+.sb-group-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 18px; cursor:pointer;
+  font-size:13px; font-weight:600; color:var(--dark);
+  border-radius:0;
+  transition:background .15s;
+  user-select:none;
+}
+.sb-group-header:hover{background:var(--primary-light);}
+.sb-group-header .sb-gicon{
+  width:22px; height:22px; border-radius:6px;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:11px; margin-right:8px; flex-shrink:0;
+}
+.sb-group-header .sb-gtitle{flex:1;}
+.sb-group-header .sb-arrow{
+  font-size:10px; color:var(--gray-light);
+  transition:transform .2s;
+}
+.sb-group.open .sb-arrow{transform:rotate(90deg);}
+.sb-group.active .sb-group-header{color:var(--primary);}
+.sb-children{display:none; padding-left:4px;}
+.sb-group.open .sb-children{display:block;}
+.sb-item{
+  display:flex; align-items:center; gap:8px;
+  padding:7px 18px 7px 46px;
+  font-size:12.5px; color:#4B5563;
+  text-decoration:none; cursor:pointer;
+  border-radius:0; transition:all .12s;
+  border-left:2px solid transparent;
+  position:relative;
+}
+.sb-item:hover{background:var(--primary-light);color:var(--primary);}
+.sb-item.active{
+  background:var(--primary-light); color:var(--primary);
+  font-weight:600; border-left-color:var(--primary);
+}
+.sb-item .sb-num{
+  font-size:10px; color:var(--gray-light);
+  min-width:18px; font-weight:600;
+}
+/* 단일 항목(서브 없음) */
+.sb-single{
+  display:flex; align-items:center; gap:10px;
+  padding:9px 18px; cursor:pointer;
+  font-size:13px; color:#4B5563;
+  text-decoration:none;
+  transition:all .12s;
+  border-left:2px solid transparent;
+}
+.sb-single:hover{background:var(--primary-light);color:var(--primary);}
+.sb-single.active{
+  background:var(--primary-light); color:var(--primary);
+  font-weight:600; border-left-color:var(--primary);
+}
+.sb-single .sb-sicon{
+  width:22px; height:22px; border-radius:6px;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:11px; flex-shrink:0;
+}
+
+/* ────────────── MAIN CONTENT ────────────── */
+.g-main{
+  margin-left:var(--sidebar-w);
+  margin-top:var(--header-h);
+  min-height:calc(100vh - var(--header-h));
+  padding:0;
+}
+.g-content{
+  max-width:860px;
+  margin:0 auto;
+  padding:40px 48px 80px;
+}
+
+/* ────────────── BREADCRUMB ────────────── */
+.breadcrumb{
+  display:flex; align-items:center; gap:6px;
+  font-size:12px; color:var(--gray-light);
+  margin-bottom:24px;
+}
+.breadcrumb a{color:var(--gray-light);text-decoration:none;}
+.breadcrumb a:hover{color:var(--primary);}
+.breadcrumb .sep{color:var(--border);}
+
+/* ────────────── PAGE SECTIONS ────────────── */
+.g-page{display:none;}
+.g-page.active{display:block;}
+
+/* ────────────── HOMEPAGE ────────────── */
+.home-hero{
+  background:linear-gradient(135deg,#4F6EF7 0%,#6C47FF 100%);
+  border-radius:16px; padding:48px 48px 40px;
+  color:#fff; margin-bottom:32px; position:relative; overflow:hidden;
+}
+.home-hero::before{
+  content:''; position:absolute; top:-80px; right:-80px;
+  width:280px; height:280px; background:rgba(255,255,255,.07);
+  border-radius:50%;
+}
+.home-hero::after{
+  content:''; position:absolute; bottom:-40px; left:40px;
+  width:160px; height:160px; background:rgba(255,255,255,.05);
+  border-radius:50%;
+}
+.hero-badge{
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.3);
+  border-radius:20px; padding:4px 14px;
+  font-size:11.5px; font-weight:600;
+  margin-bottom:18px;
+}
+.home-hero h1{font-size:28px;font-weight:800;line-height:1.3;margin-bottom:10px;}
+.home-hero p{font-size:14px;opacity:.85;line-height:1.7;}
+.hero-cards{
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:16px; margin-bottom:32px;
+}
+.hero-card{
+  background:#fff; border-radius:12px;
+  padding:20px; cursor:pointer;
+  border:1.5px solid var(--border);
+  transition:all .18s; text-decoration:none;
+}
+.hero-card:hover{
+  transform:translateY(-3px);
+  box-shadow:var(--shadow-md);
+  border-color:var(--primary);
+}
+.hero-card-icon{
+  width:40px; height:40px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:17px; margin-bottom:12px;
+}
+.hero-card h3{font-size:14px;font-weight:700;margin-bottom:4px;color:var(--dark);}
+.hero-card p{font-size:12px;color:var(--gray);line-height:1.5;}
+.hero-card .arrow{
+  display:flex; align-items:center;
+  font-size:11px; color:var(--primary);
+  margin-top:10px; font-weight:600; gap:4px;
+}
+.home-qa-title{
+  font-size:15px; font-weight:700;
+  margin-bottom:16px;
+  display:flex; align-items:center; gap:8px;
+}
+.qa-grid{
+  display:grid; grid-template-columns:repeat(2,1fr);
+  gap:10px; margin-bottom:32px;
+}
+.qa-item{
+  background:#fff; border:1.5px solid var(--border);
+  border-radius:10px; padding:14px 16px;
+  cursor:pointer; transition:all .15s;
+  text-decoration:none;
+  display:flex; align-items:center; gap:10px;
+}
+.qa-item:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(79,110,247,.1);}
+.qa-item i{color:var(--primary);font-size:13px;flex-shrink:0;}
+.qa-item span{font-size:13px;color:var(--dark);font-weight:500;}
+
+/* ────────────── ARTICLE ────────────── */
+.article-header{margin-bottom:32px;}
+.article-cat{
+  font-size:11.5px; font-weight:700;
+  color:var(--primary); letter-spacing:.4px;
+  text-transform:uppercase; margin-bottom:8px;
+}
+.article-title{
+  font-size:24px; font-weight:800; line-height:1.3;
+  color:var(--dark); margin-bottom:10px;
+}
+.article-desc{font-size:14px;color:var(--gray);line-height:1.7;}
+.article-meta{
+  display:flex; gap:16px; flex-wrap:wrap;
+  margin-top:12px;
+  font-size:12px; color:var(--gray-light);
+}
+.article-meta span{display:flex;align-items:center;gap:5px;}
+
+/* 구분선 */
+.a-divider{
+  border:none; border-top:1.5px solid var(--border);
+  margin:32px 0;
+}
+
+/* ────────────── CONTENT BLOCKS ────────────── */
+/* h2, h3 */
+.a-h2{
+  font-size:18px; font-weight:700; color:var(--dark);
+  margin:36px 0 14px;
+  padding-bottom:10px; border-bottom:2px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+}
+.a-h2:first-of-type{margin-top:0;}
+.a-h3{
+  font-size:15px; font-weight:700; color:var(--dark);
+  margin:24px 0 10px;
+  display:flex; align-items:center; gap:8px;
+}
+.a-h3::before{
+  content:''; width:4px; height:16px;
+  background:var(--primary); border-radius:2px;
+  display:inline-block;
+}
+.a-p{font-size:14px;color:#374151;line-height:1.8;margin-bottom:12px;}
+.a-p:last-child{margin-bottom:0;}
+
+/* Callout boxes */
+.callout{
+  border-radius:10px; padding:14px 16px;
+  margin:16px 0; display:flex; gap:12px;
+  align-items:flex-start; font-size:13.5px; line-height:1.7;
+}
+.callout-icon{flex-shrink:0;font-size:15px;margin-top:1px;}
+.callout-body strong{display:block;margin-bottom:3px;font-weight:700;}
+.callout.info{background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF;}
+.callout.warn{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;}
+.callout.success{background:#F0FFF4;border:1px solid #BBF7D0;color:#166534;}
+.callout.tip{background:#F5F3FF;border:1px solid #DDD6FE;color:#5B21B6;}
+.callout.danger{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;}
+
+/* Steps */
+.steps-list{margin:16px 0;}
+.step-row{
+  display:flex; gap:0; margin-bottom:0;
+  position:relative;
+}
+.step-row:not(:last-child) .step-line::after{
+  content:''; position:absolute;
+  top:32px; left:50%; transform:translateX(-50%);
+  width:2px; height:calc(100% - 8px);
+  background:var(--border);
+}
+.step-line{
+  display:flex; flex-direction:column; align-items:center;
+  width:44px; flex-shrink:0; position:relative;
+  padding-top:4px;
+}
+.step-dot{
+  width:28px; height:28px; border-radius:50%;
+  background:var(--primary); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700; flex-shrink:0; z-index:1;
+}
+.step-body{
+  flex:1; padding:2px 0 24px 16px;
+}
+.step-ttl{font-size:14px;font-weight:700;color:var(--dark);margin-bottom:4px;}
+.step-dsc{font-size:13px;color:var(--gray);line-height:1.7;}
+.step-sub{
+  background:var(--bg); border-radius:8px;
+  padding:12px 14px; margin-top:10px;
+  font-size:13px; color:#374151; line-height:1.7;
+  border:1px solid var(--border);
+}
+
+/* Checklist */
+.checklist{list-style:none;margin:12px 0;}
+.checklist li{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:5px 0; font-size:13.5px; color:#374151;
+  border-bottom:1px solid var(--border-light);
+}
+.checklist li:last-child{border-bottom:none;}
+.checklist li::before{
+  content:'✓'; color:var(--success);
+  font-weight:700; font-size:13px; flex-shrink:0; margin-top:1px;
+}
+
+/* Table */
+.a-table{
+  width:100%; border-collapse:collapse;
+  margin:16px 0; font-size:13px;
+  border-radius:10px; overflow:hidden;
+  border:1px solid var(--border);
+}
+.a-table th{
+  background:#F9FAFB; color:#374151;
+  font-weight:700; padding:11px 16px;
+  text-align:left; border-bottom:1.5px solid var(--border);
+}
+.a-table td{
+  padding:11px 16px; color:#374151;
+  border-bottom:1px solid var(--border-light);
+  vertical-align:top; line-height:1.6;
+}
+.a-table tr:last-child td{border-bottom:none;}
+.a-table tr:hover td{background:#FAFBFF;}
+.a-table.admin th{background:var(--admin-light);color:var(--admin);}
+
+/* Badge */
+.badge{
+  display:inline-flex; align-items:center;
+  padding:2px 8px; border-radius:20px;
+  font-size:11px; font-weight:700; gap:3px;
+}
+.badge-user{background:#EEF2FF;color:var(--primary);}
+.badge-manager{background:#FFF7ED;color:#D97706;}
+.badge-admin{background:var(--admin-light);color:var(--admin);}
+.badge-c1{background:#FFFBEB;color:#D97706;}
+.badge-c2{background:#F0FFF4;color:#16A34A;}
+.badge-c3{background:#EFF6FF;color:#2563EB;}
+.badge-c4{background:#F5F3FF;color:var(--admin);}
+.badge-success{background:#F0FFF4;color:#16A34A;}
+.badge-warn{background:#FFFBEB;color:#D97706;}
+.badge-danger{background:#FEF2F2;color:#DC2626;}
+
+/* Feat cards */
+.feat-grid{
+  display:grid; grid-template-columns:repeat(2,1fr);
+  gap:12px; margin:16px 0;
+}
+.feat-card{
+  background:#fff; border:1.5px solid var(--border);
+  border-radius:10px; padding:16px;
+  display:flex; gap:12px; align-items:flex-start;
+  transition:all .15s;
+}
+.feat-card:hover{border-color:var(--primary);box-shadow:0 2px 10px rgba(79,110,247,.08);}
+.feat-icon{
+  width:36px; height:36px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; flex-shrink:0;
+}
+.fi-blue{background:#EEF2FF;color:var(--primary);}
+.fi-green{background:#F0FFF4;color:#16A34A;}
+.fi-orange{background:#FFF7ED;color:#D97706;}
+.fi-purple{background:var(--admin-light);color:var(--admin);}
+.fi-red{background:#FEF2F2;color:#DC2626;}
+.fi-teal{background:#F0FDFA;color:#0D9488;}
+.fi-gray{background:#F9FAFB;color:var(--gray);}
+.feat-name{font-size:13px;font-weight:700;margin-bottom:3px;}
+.feat-desc{font-size:12px;color:var(--gray);line-height:1.55;}
+
+/* Status badges */
+.status-table{margin:16px 0;}
+.status-row{
+  display:flex; align-items:flex-start; gap:14px;
+  padding:10px 0; border-bottom:1px solid var(--border-light);
+}
+.status-row:last-child{border-bottom:none;}
+.status-dot{
+  width:10px; height:10px; border-radius:50%;
+  flex-shrink:0; margin-top:5px;
+}
+.status-dot.gray{background:#9CA3AF;}
+.status-dot.yellow{background:#F59E0B;}
+.status-dot.orange{background:#F97316;}
+.status-dot.green{background:#22C55E;}
+.status-dot.red{background:#EF4444;}
+.status-name{font-size:13px;font-weight:700;width:90px;flex-shrink:0;color:var(--dark);}
+.status-desc{font-size:13px;color:var(--gray);line-height:1.6;}
+
+/* Mock UI (스크린샷 대체) */
+.mock-ui{
+  background:#fff; border:1.5px solid var(--border);
+  border-radius:12px; overflow:hidden; margin:20px 0;
+}
+.mock-titlebar{
+  background:#F9FAFB; border-bottom:1px solid var(--border);
+  padding:10px 16px; display:flex; align-items:center; gap:8px;
+}
+.mock-dots{display:flex;gap:5px;}
+.mock-dot{width:10px;height:10px;border-radius:50%;}
+.mock-dot.r{background:#EF4444;}
+.mock-dot.y{background:#F59E0B;}
+.mock-dot.g{background:#22C55E;}
+.mock-tab{
+  font-size:11.5px; font-weight:600; color:var(--gray);
+  padding:2px 10px; border-radius:4px; background:var(--border-light);
+  margin-left:8px;
+}
+.mock-body{padding:16px 20px;}
+.mock-row{
+  display:flex; align-items:center; gap:12px;
+  padding:9px 12px; border-radius:8px;
+  margin-bottom:6px; border:1px solid var(--border);
+  font-size:12.5px; background:#fff;
+}
+.mock-row:hover{background:var(--primary-light);}
+.mock-row-icon{color:var(--primary);width:16px;text-align:center;}
+.mock-row-label{flex:1;font-weight:600;color:var(--dark);}
+.mock-row-badge{font-size:10.5px;padding:2px 8px;border-radius:20px;}
+.mock-row-action{color:var(--gray-light);font-size:11px;}
+.mock-form-field{
+  margin-bottom:10px;
+}
+.mock-label{font-size:11px;color:var(--gray);font-weight:600;margin-bottom:4px;}
+.mock-input{
+  width:100%; padding:8px 12px;
+  border:1.5px solid var(--border); border-radius:7px;
+  font-size:12.5px; color:var(--dark); background:#fff;
+}
+.mock-input.focus{border-color:var(--primary);}
+.mock-btn{
+  padding:8px 18px; border-radius:7px;
+  font-size:12.5px; font-weight:700;
+  display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+}
+.mock-btn.prim{background:var(--primary);color:#fff;border:none;}
+.mock-btn.sec{background:#fff;color:var(--gray);border:1.5px solid var(--border);}
+
+/* Account cards */
+.account-grid{
+  display:grid; grid-template-columns:repeat(2,1fr);
+  gap:12px; margin:16px 0;
+}
+.account-card{
+  background:linear-gradient(135deg,#1A1D2E,#2D3561);
+  border-radius:12px; padding:16px 18px; color:#fff;
+}
+.ac-role{
+  display:inline-block; padding:2px 8px; border-radius:8px;
+  font-size:10.5px; font-weight:700; margin-bottom:8px;
+}
+.ac-role.admin{background:rgba(124,58,237,.4);color:#C4B5FD;}
+.ac-role.user{background:rgba(79,110,247,.4);color:#A5B4FC;}
+.ac-role.manager{background:rgba(245,158,11,.35);color:#FCD34D;}
+.ac-name{font-size:13.5px;font-weight:700;margin-bottom:6px;}
+.ac-info{font-size:12px;opacity:.75;font-family:monospace;line-height:1.8;}
+.ac-org{font-size:11px;opacity:.55;margin-top:4px;}
+
+/* permission table */
+.perm-table{
+  width:100%; border-collapse:collapse; font-size:13px;
+  border-radius:10px; overflow:hidden; border:1px solid var(--border);
+}
+.perm-table th{
+  background:#F9FAFB; padding:10px 14px;
+  text-align:center; font-weight:700;
+  border-bottom:1.5px solid var(--border);
+  border-right:1px solid var(--border);
+}
+.perm-table th:first-child{text-align:left;}
+.perm-table td{
+  padding:10px 14px; border-bottom:1px solid var(--border-light);
+  border-right:1px solid var(--border-light);
+  text-align:center; vertical-align:middle;
+}
+.perm-table td:first-child{text-align:left;font-weight:500;color:var(--dark);}
+.perm-table tr:last-child td{border-bottom:none;}
+.perm-table tr:hover td{background:#FAFBFF;}
+.chk-yes{color:var(--success);font-weight:700;font-size:15px;}
+.chk-no{color:var(--border);font-size:15px;}
+
+/* ────────────── PREV / NEXT NAV ────────────── */
+.page-nav{
+  display:flex; gap:12px; margin-top:48px;
+  padding-top:24px; border-top:1.5px solid var(--border);
+}
+.pn-btn{
+  flex:1; background:#fff; border:1.5px solid var(--border);
+  border-radius:10px; padding:14px 18px;
+  cursor:pointer; text-decoration:none;
+  transition:all .15s; display:flex; align-items:center; gap:12px;
+}
+.pn-btn:hover{border-color:var(--primary);box-shadow:0 2px 10px rgba(79,110,247,.1);}
+.pn-btn.next{justify-content:flex-end;text-align:right;}
+.pn-label{font-size:11px;color:var(--gray-light);margin-bottom:2px;}
+.pn-title{font-size:13.5px;font-weight:700;color:var(--dark);}
+.pn-arrow{font-size:16px;color:var(--primary);flex-shrink:0;}
+
+/* ────────────── FOOTER ────────────── */
+.g-footer{
+  margin-left:var(--sidebar-w);
+  background:#fff; border-top:1px solid var(--border);
+  padding:20px 48px;
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:12px; color:var(--gray-light);
+}
+
+/* ────────────── 역량 카드 (2-2) ────────────── */
+.mc-section-header{
+  display:flex;align-items:center;gap:10px;
+  font-size:15px;font-weight:700;color:var(--dark);
+  margin:24px 0 14px;padding-bottom:10px;
+  border-bottom:2px solid var(--border);
+}
+.mc-section-count{
+  font-size:12px;font-weight:500;color:var(--gray);
+  background:var(--bg);padding:2px 10px;border-radius:20px;
+}
+.mc-grid-inner{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:12px;margin-bottom:8px;
+}
+.mc-band-group{
+  border-radius:12px;margin-bottom:18px;overflow:hidden;
+  border:1px solid rgba(0,0,0,0.08);box-shadow:var(--shadow);
+}
+.mc-band-header{padding:10px 16px;display:flex;align-items:center;gap:12px;}
+.mc-band-badge{
+  color:#fff;border-radius:6px;
+  padding:3px 11px;font-size:12px;font-weight:800;
+}
+.mc-band-label{font-size:13px;font-weight:700;color:var(--dark);}
+.mc-band-desc{font-size:11.5px;color:var(--gray);margin-top:1px;}
+.mc-band-areas{padding:0 12px 14px;}
+.mc-area-label{
+  font-size:12px;font-weight:700;padding:4px 12px;border-radius:6px;
+  margin:10px 0 8px;display:inline-flex;align-items:center;gap:6px;
+}
+.mc-area-label.biz{background:#EFF6FF;color:#2563EB;}
+.mc-area-label.ppl{background:#FDF4FF;color:#9333EA;}
+.mc-cards-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.mc-card{
+  background:#fff;border-radius:10px;
+  border:1px solid var(--border);padding:14px;
+  box-shadow:var(--shadow);transition:all .15s;
+}
+.mc-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--primary);}
+.mc-card-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:7px;}
+.mc-cat-badge{
+  display:inline-block;font-size:10px;font-weight:700;
+  padding:2px 8px;border-radius:20px;
+}
+.mc-cat-job{background:#FEF3C7;color:#D97706;}
+.mc-cat-leadership{background:#DCFCE7;color:#16A34A;}
+.mc-area-tag{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;}
+.mc-area-tag.business{background:#EFF6FF;color:#2563EB;}
+.mc-area-tag.people{background:#FDF4FF;color:#9333EA;}
+.mc-card-title{font-size:13.5px;font-weight:700;margin-bottom:5px;color:var(--dark);}
+.mc-card-def{font-size:11.5px;color:var(--gray);line-height:1.6;margin-bottom:9px;}
+.mc-levels{display:flex;gap:4px;margin-bottom:9px;}
+.mc-dot{width:9px;height:9px;border-radius:50%;background:var(--border);}
+.mc-dot.filled{background:var(--primary);}
+.mc-card-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  padding-top:8px;border-top:1px solid var(--border);
+  font-size:11px;color:var(--gray-light);
+}
+
+/* ════════════════════════════════════════
+   RESPONSIVE — 태블릿 (≤1024px)
+════════════════════════════════════════ */
+@media(max-width:1024px){
+  .g-sidebar-toggle{display:flex;}
+  .hero-cards{grid-template-columns:repeat(2,1fr);}
+  .g-content{padding:32px 32px 72px;}
+}
+
+/* ════════════════════════════════════════
+   RESPONSIVE — 모바일 (≤768px)
+   핵심: 사이드바 오버레이 드로어 방식
+════════════════════════════════════════ */
+@media(max-width:768px){
+  /* ── CSS 변수 조정 ── */
+  :root{
+    --header-h:52px;
+    --sidebar-w:280px;
+  }
+
+  /* ── 헤더 ── */
+  .g-header{padding:0 12px 0 0;}
+  .g-logo{font-size:14px;gap:6px;padding:0 10px 0 12px;}
+  .g-logo-badge{display:none;}                 /* 뱃지 숨김 */
+  .g-search-wrap{padding:0 8px;}
+  .g-search{font-size:12.5px;padding:7px 10px 7px 32px;}
+  .g-search-icon{left:10px;font-size:11px;}
+  .g-header-right .g-btn span{display:none;}    /* 텍스트 숨기고 아이콘만 */
+  .g-btn{padding:0 10px;min-width:34px;justify-content:center;}
+  .g-sidebar-toggle{display:flex;margin-right:4px;}
+
+  /* ── 사이드바: 오버레이 드로어 ── */
+  .g-sidebar{
+    transform:translateX(-100%);
+    z-index:500;
+    box-shadow:none;
+  }
+  .g-sidebar.open{
+    transform:translateX(0);
+    box-shadow:4px 0 24px rgba(0,0,0,0.18);
+  }
+
+  /* ── 사이드바 오버레이 배경 ── */
+  .sb-overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.45);
+    z-index:499;
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+  }
+  .sb-overlay.show{display:block;}
+
+  /* ── 메인 콘텐츠 ── */
+  .g-main,.g-footer{margin-left:0 !important;}
+  .g-content{padding:20px 16px 80px;}
+
+  /* ── 홈 히어로 ── */
+  .home-hero{padding:28px 22px 24px;border-radius:12px;}
+  .home-hero h1{font-size:20px;}
+  .home-hero p{font-size:13px;}
+  .hero-badge{font-size:11px;}
+  .hero-cards{grid-template-columns:1fr;}
+
+  /* ── 특징 카드 그리드 ── */
+  .feat-grid{grid-template-columns:1fr;}
+
+  /* ── 계정 그리드 ── */
+  .account-grid{grid-template-columns:1fr;}
+
+  /* ── QA 그리드 ── */
+  .qa-grid{grid-template-columns:1fr;}
+
+  /* ── 테이블: 가로 스크롤 ── */
+  .a-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0;}
+  .a-table,.perm-table{min-width:480px;}
+
+  /* ── 기사 헤더 ── */
+  .article-header h1.article-title{font-size:20px;line-height:1.35;}
+  .article-header p.article-desc{font-size:13px;}
+
+  /* ── Callout ── */
+  .callout{padding:12px 14px;font-size:13px;}
+
+  /* ── Step 리스트 ── */
+  .step-body{padding-left:12px;}
+
+  /* ── 이전/다음 네비 ── */
+  .page-nav{flex-direction:column;gap:10px;margin-top:36px;}
+  .pn-btn{width:100%;}
+  .pn-btn.next{justify-content:flex-start;}
+
+  /* ── 역량 카드 그리드 ── */
+  .mc-grid-inner{grid-template-columns:1fr !important;}
+  .mc-cards-row{grid-template-columns:1fr !important;}
+
+  /* ── 검색 결과 ── */
+  .search-results{width:calc(100vw - 32px);max-width:none;}
+
+  /* ── 푸터 ── */
+  .g-footer{
+    flex-direction:column; gap:6px;
+    padding:16px 20px; text-align:center;
+  }
+
+  /* ── 섹션 헤더 ── */
+  .a-h2{font-size:14px;}
+  .sec-title{font-size:13px;}
+
+  /* ── 버튼 텍스트 숨김 (아이콘만 표시) ── */
+  .g-btn.primary span{display:none;}
+  .g-btn.primary{padding:0 12px;}
+}
+
+/* ════════════════════════════════════════
+   RESPONSIVE — 소형 모바일 (≤480px)
+════════════════════════════════════════ */
+@media(max-width:480px){
+  .g-content{padding:16px 14px 80px;}
+  .home-hero{padding:22px 18px 20px;}
+  .home-hero h1{font-size:18px;}
+  .hero-card{padding:16px;}
+
+  /* 헤더 검색창 숨기고 아이콘 버튼만 */
+  .g-search-wrap{display:none;}
+  .g-search-visible .g-search-wrap{
+    display:flex;
+    position:fixed;
+    top:var(--header-h); left:0; right:0;
+    background:#fff;
+    border-bottom:1px solid var(--border);
+    padding:10px 16px;
+    z-index:999;
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+  }
+  .g-search-visible .g-search-wrap .g-search{max-width:100%;}
+  .g-search-visible .search-results{
+    top:calc(var(--header-h) + 52px);
+    position:fixed; left:0; right:0; width:100%;
+    border-radius:0;
+    max-height:60vh; overflow-y:auto;
+  }
+
+  /* 검색 버튼 표시 */
+  .g-search-btn{display:flex !important;}
+
+  /* 이전/다음 버튼 축소 */
+  .pn-title{font-size:13px;}
+  .pn-label{font-size:10.5px;}
+}
+
+/* ════════════════════════════════════════
+   @media print
+════════════════════════════════════════ */
+@media print{
+  .g-header,.g-sidebar,.page-nav,.g-footer,
+  .sb-overlay,.g-sidebar-toggle{display:none!important;}
+  .g-main{margin-left:0!important;}
+  .g-page{display:block!important;}
+  .g-content{padding:0;}
+  .a-table-wrap{overflow:visible;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════ 사이드바 오버레이 (모바일) ══════ -->
+<div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+
+<!-- ══════ TOP HEADER ══════ -->
+<header class="g-header">
+  <button class="g-sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="메뉴 열기">
+    <i class="fas fa-bars"></i>
+  </button>
+  <a class="g-logo" href="#" onclick="showPage('home');return false;">
+    <i class="fas fa-seedling"></i>
+    GoWIT IDP
+    <span class="g-logo-badge">GUIDE</span>
+  </a>
+  <div class="g-search-wrap">
+    <i class="fas fa-search g-search-icon"></i>
+    <input class="g-search" id="globalSearch" type="text"
+           placeholder="가이드 검색... (예: IDP 작성, 회원가입)"
+           oninput="handleSearch(this.value)"
+           onfocus="handleSearch(this.value)"
+           autocomplete="off"/>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <div class="g-header-right">
+    <!-- 소형 모바일 전용 검색 버튼 (480px 이하) -->
+    <button class="g-btn g-search-btn" id="searchToggleBtn"
+            onclick="toggleMobileSearch()" aria-label="검색"
+            style="display:none">
+      <i class="fas fa-search"></i>
+    </button>
+    <a href="login.html" target="_blank" class="g-btn primary">
+      <i class="fas fa-external-link-alt"></i><span> 시스템 접속</span>
+    </a>
+  </div>
+</header>
+
+<!-- ══════ SIDEBAR ══════ -->
+<nav class="g-sidebar" id="sidebar">
+
+  <!-- 홈 -->
+  <div class="sb-section">
+    <a class="sb-single active" id="sb-home" onclick="showPage('home');setSbActive('sb-home');return false;" href="#">
+      <span class="sb-sicon fi-blue"><i class="fas fa-house"></i></span>
+      가이드 홈
+    </a>
+    <a class="sb-single" id="sb-accounts" onclick="showPage('p-accounts');setSbActive('sb-accounts');return false;" href="#">
+      <span class="sb-sicon fi-gray"><i class="fas fa-user-circle"></i></span>
+      테스트 계정 안내
+    </a>
+  </div>
+
+  <!-- 시작하기 -->
+  <div class="sb-section">
+    <div class="sb-label">시작하기</div>
+    <div class="sb-group open" id="grp-start">
+      <div class="sb-group-header" onclick="toggleGroup('grp-start')">
+        <span class="sb-gicon fi-blue"><i class="fas fa-rocket"></i></span>
+        <span class="sb-gtitle">로그인 &amp; 회원가입</span>
+        <i class="fas fa-chevron-right sb-arrow"></i>
+      </div>
+      <div class="sb-children">
+        <a class="sb-item" id="sb-login" onclick="showPage('p-login');setSbActive('sb-login');return false;" href="#">
+          <span class="sb-num">1-1</span> 로그인하기
+        </a>
+        <a class="sb-item" id="sb-signup" onclick="showPage('p-signup');setSbActive('sb-signup');return false;" href="#">
+          <span class="sb-num">1-2</span> 회원가입하기
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 사용자 화면 -->
+  <div class="sb-section">
+    <div class="sb-label">사용자 화면</div>
+    <div class="sb-group" id="grp-user">
+      <div class="sb-group-header" onclick="toggleGroup('grp-user')">
+        <span class="sb-gicon fi-blue"><i class="fas fa-user"></i></span>
+        <span class="sb-gtitle">홈 대시보드</span>
+        <i class="fas fa-chevron-right sb-arrow"></i>
+      </div>
+      <div class="sb-children">
+        <a class="sb-item" id="sb-dashboard" onclick="showPage('p-dashboard');setSbActive('sb-dashboard');return false;" href="#">
+          <span class="sb-num">2-1</span> 홈 대시보드
+        </a>
+      </div>
+    </div>
+    <div class="sb-group" id="grp-comp">
+      <div class="sb-group-header" onclick="toggleGroup('grp-comp')">
+        <span class="sb-gicon fi-orange"><i class="fas fa-book-open"></i></span>
+        <span class="sb-gtitle">역량사전</span>
+        <i class="fas fa-chevron-right sb-arrow"></i>
+      </div>
+      <div class="sb-children">
+        <a class="sb-item" id="sb-compdict" onclick="showPage('p-compdict');setSbActive('sb-compdict');return false;" href="#">
+          <span class="sb-num">2-2</span> 역량사전 보기
+        </a>
+        <a class="sb-item" id="sb-compdiag" onclick="showPage('p-compdiag');setSbActive('sb-compdiag');return false;" href="#">
+          <span class="sb-num">2-3</span> 역량수준 진단
+        </a>
+      </div>
+    </div>
+    <div class="sb-group" id="grp-idp">
+      <div class="sb-group-header" onclick="toggleGroup('grp-idp')">
+        <span class="sb-gicon fi-purple"><i class="fas fa-pen-to-square"></i></span>
+        <span class="sb-gtitle">IDP 관리</span>
+        <i class="fas fa-chevron-right sb-arrow"></i>
+      </div>
+      <div class="sb-children">
+        <a class="sb-item" id="sb-idpwrite" onclick="showPage('p-idpwrite');setSbActive('sb-idpwrite');return false;" href="#">
+          <span class="sb-num">2-4</span> IDP 작성하기
+        </a>
+        <a class="sb-item" id="sb-idpstatus" onclick="showPage('p-idpstatus');setSbActive('sb-idpstatus');return false;" href="#">
+          <span class="sb-num">2-5</span> IDP 현황 확인
+        </a>
+        <a class="sb-item" id="sb-idpagree" onclick="showPage('p-idpagree');setSbActive('sb-idpagree');return false;" href="#">
+          <span class="sb-num">2-6</span> IDP 합의 (승인/반려)
+        </a>
+      </div>
+    </div>
+    <div class="sb-group" id="grp-feedback">
+      <div class="sb-group-header" onclick="toggleGroup('grp-feedback')">
+        <span class="sb-gicon fi-green"><i class="fas fa-comments"></i></span>
+        <span class="sb-gtitle">피드백 &amp; 평가</span>
+        <i class="fas fa-chevron-right sb-arrow"></i>
+      </div>
+      <div class="sb-children">
+        <a class="sb-item" id="sb-feedback" onclick="showPage('p-feedback');setSbActive('sb-feedback');return false;" href="#">
+          <span class="sb-num">2-8</span> 실행 피드백
+        </a>
+        <a class="sb-item" id="sb-eval" onclick="showPage('p-eval');setSbActive('sb-eval');return false;" href="#">
+          <span class="sb-num">2-9</span> 역량개발 평가
+        </a>
+        <a class="sb-item" id="sb-oo1" onclick="showPage('p-oo1');setSbActive('sb-oo1');return false;" href="#">
+          <span class="sb-num">2-10</span> 1on1 관리
+        </a>
+      </div>
+    </div>
+    <div class="sb-group" id="grp-result">
+      <div class="sb-group-header" onclick="toggleGroup('grp-result')">
+        <span class="sb-gicon fi-teal"><i class="fas fa-chart-bar"></i></span>
+        <span class="sb-gtitle">결과 &amp; 설정</span>
+        <i class="fas fa-chevron-right sb-arrow"></i>
+      </div>
+      <div class="sb-children">
+        <a class="sb-item" id="sb-analysis" onclick="showPage('p-analysis');setSbActive('sb-analysis');return false;" href="#">
+          <span class="sb-num">2-11</span> 결과 분석
+        </a>
+        <a class="sb-item" id="sb-settings" onclick="showPage('p-settings');setSbActive('sb-settings');return false;" href="#">
+          <span class="sb-num">2-12</span> 설정
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 관리자 콘솔 -->
+  <div class="sb-section">
+    <div class="sb-label">관리자 콘솔</div>
+    <div class="sb-group" id="grp-adm">
+      <div class="sb-group-header" onclick="toggleGroup('grp-adm')">
+        <span class="sb-gicon fi-purple"><i class="fas fa-shield-halved"></i></span>
+        <span class="sb-gtitle">운영 현황</span>
+        <i class="fas fa-chevron-right sb-arrow"></i>
+      </div>
+      <div class="sb-children">
+        <a class="sb-item" id="sb-admdash" onclick="showPage('p-admdash');setSbActive('sb-admdash');return false;" href="#">
+          <span class="sb-num">3-1</span> 운영 현황 대시보드
+        </a>
+      </div>
+    </div>
+    <div class="sb-group" id="grp-adm-org">
+      <div class="sb-group-header" onclick="toggleGroup('grp-adm-org')">
+        <span class="sb-gicon fi-purple"><i class="fas fa-sitemap"></i></span>
+        <span class="sb-gtitle">조직·인사 관리</span>
+        <i class="fas fa-chevron-right sb-arrow"></i>
+      </div>
+      <div class="sb-children">
+        <a class="sb-item" id="sb-adm-org" onclick="showPage('p-adm-org');setSbActive('sb-adm-org');return false;" href="#">
+          <span class="sb-num">3-2</span> 조직 관리
+        </a>
+        <a class="sb-item" id="sb-adm-band" onclick="showPage('p-adm-band');setSbActive('sb-adm-band');return false;" href="#">
+          <span class="sb-num">3-3</span> 밴드·직책 관리
+        </a>
+        <a class="sb-item" id="sb-adm-user" onclick="showPage('p-adm-user');setSbActive('sb-adm-user');return false;" href="#">
+          <span class="sb-num">3-4</span> 사용자 관리
+        </a>
+      </div>
+    </div>
+    <div class="sb-group" id="grp-adm-idp">
+      <div class="sb-group-header" onclick="toggleGroup('grp-adm-idp')">
+        <span class="sb-gicon fi-purple"><i class="fas fa-list-check"></i></span>
+        <span class="sb-gtitle">IDP·역량 관리</span>
+        <i class="fas fa-chevron-right sb-arrow"></i>
+      </div>
+      <div class="sb-children">
+        <a class="sb-item" id="sb-adm-idp" onclick="showPage('p-adm-idp');setSbActive('sb-adm-idp');return false;" href="#">
+          <span class="sb-num">3-5</span> IDP 현황 관리
+        </a>
+        <a class="sb-item" id="sb-adm-comp" onclick="showPage('p-adm-comp');setSbActive('sb-adm-comp');return false;" href="#">
+          <span class="sb-num">3-6</span> 역량사전 관리
+        </a>
+        <a class="sb-item" id="sb-adm-goal" onclick="showPage('p-adm-goal');setSbActive('sb-adm-goal');return false;" href="#">
+          <span class="sb-num">3-7</span> 역량 목표 관리
+        </a>
+        <a class="sb-item" id="sb-adm-period" onclick="showPage('p-adm-period');setSbActive('sb-adm-period');return false;" href="#">
+          <span class="sb-num">3-8</span> IDP 실행 기간 설정
+        </a>
+        <a class="sb-item" id="sb-adm-eval" onclick="showPage('p-adm-eval');setSbActive('sb-adm-eval');return false;" href="#">
+          <span class="sb-num">3-9</span> 평가 관리
+        </a>
+        <a class="sb-item" id="sb-adm-sys" onclick="showPage('p-adm-sys');setSbActive('sb-adm-sys');return false;" href="#">
+          <span class="sb-num">3-10</span> 시스템 관리
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 부록 -->
+  <div class="sb-section">
+    <div class="sb-label">부록</div>
+    <a class="sb-single" id="sb-perm" onclick="showPage('p-perm');setSbActive('sb-perm');return false;" href="#">
+      <span class="sb-sicon fi-gray"><i class="fas fa-key"></i></span>
+      역할별 권한 표
+    </a>
+    <a class="sb-single" id="sb-notice" onclick="showPage('p-notice');setSbActive('sb-notice');return false;" href="#">
+      <span class="sb-sicon fi-orange"><i class="fas fa-triangle-exclamation"></i></span>
+      테스트 시 주의사항
+    </a>
+  </div>
+
+</nav>
+
+<!-- ══════ MAIN ══════ -->
+<main class="g-main">
+<div class="g-content">
+
+<!-- ──────────────────── HOME ──────────────────── -->
+<article class="g-page active" id="home">
+  <div class="home-hero">
+    <div class="hero-badge"><i class="fas fa-seedling"></i> GoWIT IDP 사용 가이드</div>
+    <h1>개인 역량 개발 계획,<br>IDP를 처음 사용하시나요?</h1>
+    <p>로그인부터 IDP 작성·합의·평가까지 단계별 사용법을 안내합니다.</p>
+  </div>
+
+  <div class="hero-cards">
+    <a class="hero-card" onclick="showPage('p-login');setSbActive('sb-login');return false;" href="#">
+      <div class="hero-card-icon fi-blue"><i class="fas fa-rocket"></i></div>
+      <h3>처음 시작하기</h3>
+      <p>로그인과 회원가입 방법을 확인하세요</p>
+      <div class="arrow"><i class="fas fa-arrow-right"></i> 바로가기</div>
+    </a>
+    <a class="hero-card" onclick="showPage('p-idpwrite');setSbActive('sb-idpwrite');return false;" href="#">
+      <div class="hero-card-icon fi-purple"><i class="fas fa-pen-to-square"></i></div>
+      <h3>IDP 작성하기</h3>
+      <p>역량 목표 설정부터 제출까지 4단계 가이드</p>
+      <div class="arrow"><i class="fas fa-arrow-right"></i> 바로가기</div>
+    </a>
+    <a class="hero-card" onclick="showPage('p-admdash');setSbActive('sb-admdash');return false;" href="#">
+      <div class="hero-card-icon fi-purple"><i class="fas fa-shield-halved"></i></div>
+      <h3>관리자 콘솔</h3>
+      <p>조직·사용자·역량사전 관리 방법 안내</p>
+      <div class="arrow"><i class="fas fa-arrow-right"></i> 바로가기</div>
+    </a>
+  </div>
+
+  <div class="home-qa-title"><i class="fas fa-circle-question" style="color:var(--primary)"></i> 자주 찾는 가이드</div>
+  <div class="qa-grid">
+    <a class="qa-item" onclick="showPage('p-signup');setSbActive('sb-signup');return false;" href="#">
+      <i class="fas fa-user-plus"></i><span>이메일 인증 코드를 받지 못했어요</span>
+    </a>
+    <a class="qa-item" onclick="showPage('p-idpwrite');setSbActive('sb-idpwrite');return false;" href="#">
+      <i class="fas fa-pen-to-square"></i><span>IDP를 임시저장하고 싶어요</span>
+    </a>
+    <a class="qa-item" onclick="showPage('p-idpagree');setSbActive('sb-idpagree');return false;" href="#">
+      <i class="fas fa-handshake"></i><span>IDP 합의 요청을 어떻게 승인하나요?</span>
+    </a>
+    <a class="qa-item" onclick="showPage('p-idpstatus');setSbActive('sb-idpstatus');return false;" href="#">
+      <i class="fas fa-circle-info"></i><span>IDP 상태가 '반려'로 바뀌었어요</span>
+    </a>
+    <a class="qa-item" onclick="showPage('p-compdict');setSbActive('sb-compdict');return false;" href="#">
+      <i class="fas fa-book-open"></i><span>역량사전에서 역량 레벨을 확인하고 싶어요</span>
+    </a>
+    <a class="qa-item" onclick="showPage('p-adm-user');setSbActive('sb-adm-user');return false;" href="#">
+      <i class="fas fa-users"></i><span>신규 가입자가 사용자 관리에 안 보여요</span>
+    </a>
+  </div>
+
+  <div class="callout info">
+    <i class="fas fa-info-circle callout-icon"></i>
+    <div class="callout-body">
+      <strong>데이터 저장 안내</strong>
+      모든 데이터는 <strong>브라우저 localStorage</strong>에 저장됩니다. 같은 PC·브라우저에서만 데이터가 유지되며, 캐시 삭제 시 초기화될 수 있습니다.
+    </div>
+  </div>
+</article>
+
+<!-- ──────────────────── 테스트 계정 ──────────────────── -->
+<article class="g-page" id="p-accounts">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>테스트 계정 안내</span></div>
+  <div class="article-header">
+    <div class="article-cat">시작하기</div>
+    <h1 class="article-title">테스트 계정 안내</h1>
+    <p class="article-desc">GoWIT IDP 시스템에 접속하기 위한 테스트용 계정 정보입니다. 각 계정은 역할(role)이 다르므로 목적에 맞는 계정을 선택하세요.</p>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-id-card" style="color:var(--primary)"></i> 테스트 계정 목록</div>
+  <div class="account-grid">
+    <div class="account-card">
+      <span class="ac-role admin"><i class="fas fa-shield-halved"></i> admin</span>
+      <div class="ac-name">🛡️ 관리자 (HR매니저)</div>
+      <div class="ac-info">ID: admin@gowit.co.kr<br>PW: 124578</div>
+      <div class="ac-org">경영지원팀 · C2밴드</div>
+    </div>
+    <div class="account-card">
+      <span class="ac-role user"><i class="fas fa-user"></i> user · C1</span>
+      <div class="ac-name">👤 김팀원 (팀원)</div>
+      <div class="ac-info">ID: team1.kim@gowit.co.kr<br>PW: 1234</div>
+      <div class="ac-org">사업본부 › 경영지원팀 › 기획마케팅</div>
+    </div>
+    <div class="account-card">
+      <span class="ac-role user"><i class="fas fa-user"></i> user · C2</span>
+      <div class="ac-name">🔹 이매니저 (매니저)</div>
+      <div class="ac-info">ID: manager.lee@gowit.co.kr<br>PW: 1234</div>
+      <div class="ac-org">사업본부 › 경영지원팀 › 기획마케팅</div>
+    </div>
+    <div class="account-card">
+      <span class="ac-role manager"><i class="fas fa-user-tie"></i> manager · C3</span>
+      <div class="ac-name">🔹 한파트 (파트장)</div>
+      <div class="ac-info">ID: part.1@gowit.co.kr<br>PW: 1234</div>
+      <div class="ac-org">사업본부 › 경영지원팀 › 기획마케팅</div>
+    </div>
+    <div class="account-card">
+      <span class="ac-role manager"><i class="fas fa-crown"></i> manager · C4</span>
+      <div class="ac-name">🔶 유팀장 (팀장)</div>
+      <div class="ac-info">ID: team.zzang@gowit.co.kr<br>PW: 1234</div>
+      <div class="ac-org">사업본부 › 경영지원팀</div>
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-sitemap" style="color:var(--primary)"></i> 역할(role)별 차이</div>
+  <table class="a-table">
+    <thead><tr><th>역할</th><th>밴드</th><th>주요 차이점</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-admin">admin</span></td><td>C2</td><td>관리자 콘솔(admin.html) 전용 접근. 일반 사용자 화면 비접근</td></tr>
+      <tr><td><span class="badge badge-user">user</span></td><td>C1 · C2</td><td>IDP 작성·조회, 피드백 수신, 1on1 참여. 합의 기능 없음</td></tr>
+      <tr><td><span class="badge badge-manager">manager</span></td><td>C3 · C4</td><td>IDP 합의(승인/반려), 구성원 피드백 작성, 역량 평가 수행 가능</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info">
+    <i class="fas fa-cloud callout-icon"></i>
+    <div class="callout-body">
+      <strong>Firebase 클라우드 실시간 동기화</strong>
+      모든 데이터는 Firebase Firestore(서울 리전)에 저장됩니다. 어떤 PC·브라우저에서 접속해도 동일한 데이터를 실시간으로 확인할 수 있습니다.
+    </div>
+  </div>
+
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('home');setSbActive('sb-home');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">가이드 홈</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-login');setSbActive('sb-login');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">로그인하기</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 1-1 로그인 ──────────────────── -->
+<article class="g-page" id="p-login">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>로그인하기</span></div>
+  <div class="article-header">
+    <div class="article-cat">시작하기 · 1-1</div>
+    <h1 class="article-title">로그인하기</h1>
+    <p class="article-desc">회사 이메일과 비밀번호로 GoWIT IDP 시스템에 접속합니다. 로그인 후 역할(role)에 따라 이동되는 화면이 다릅니다.</p>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-sign-in-alt" style="color:var(--primary)"></i> 로그인 순서</div>
+  <div class="steps-list">
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">1</div></div>
+      <div class="step-body">
+        <div class="step-ttl">login.html 접속</div>
+        <div class="step-dsc">브라우저에서 시스템 URL에 접속합니다. 상단의 <strong>"시스템 접속"</strong> 버튼을 눌러도 됩니다.</div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">2</div></div>
+      <div class="step-body">
+        <div class="step-ttl">이메일·비밀번호 입력</div>
+        <div class="step-dsc">회사 이메일 주소와 비밀번호를 입력합니다.</div>
+        <div class="step-sub">
+          예시<br>
+          이메일: <code>team1.kim@gowit.co.kr</code><br>
+          비밀번호: <code>1234</code>
+        </div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">3</div></div>
+      <div class="step-body">
+        <div class="step-ttl">로그인 버튼 클릭</div>
+        <div class="step-dsc">입력 후 <strong>로그인</strong> 버튼을 클릭하면 역할에 따라 자동으로 이동됩니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-arrow-right-to-bracket" style="color:var(--primary)"></i> 로그인 후 이동 화면</div>
+  <table class="a-table">
+    <thead><tr><th>역할</th><th>로그인 후 이동</th><th>설명</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-admin">admin</span></td>
+        <td><code>admin.html</code></td>
+        <td>관리자 콘솔 화면으로 즉시 이동</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-manager">manager</span></td>
+        <td><code>index.html</code></td>
+        <td>사용자 메인 화면 (IDP 합의·피드백 작성 가능)</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-user">user</span></td>
+        <td><code>index.html</code></td>
+        <td>사용자 메인 화면 (IDP 작성·조회)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout tip">
+    <i class="fas fa-lightbulb callout-icon"></i>
+    <div class="callout-body">
+      <strong>자동 이동이 되지 않나요?</strong>
+      이메일 또는 비밀번호가 맞지 않으면 오류 메시지가 표시됩니다. 비밀번호를 잊은 경우 관리자(admin@gowit.co.kr)에게 문의하세요.
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-lock" style="color:var(--primary)"></i> 인증 보안 방식</div>
+  <p class="a-p">GoWIT IDP는 로그인 성공 시 <strong>sessionStorage</strong>에 세션 정보를 저장합니다. 브라우저 탭을 닫으면 세션이 만료되어 다시 로그인해야 합니다.</p>
+  <ul class="checklist">
+    <li>브라우저 탭 닫기 → 세션 만료 → 재로그인 필요</li>
+    <li>미인증 상태로 index.html/admin.html 직접 접속 → 자동으로 login.html 이동</li>
+    <li>일반 계정으로 admin.html 접속 시도 → 자동 차단 및 login.html 이동</li>
+  </ul>
+
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-accounts');setSbActive('sb-accounts');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">테스트 계정 안내</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-signup');setSbActive('sb-signup');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">회원가입하기</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 1-2 회원가입 ──────────────────── -->
+<article class="g-page" id="p-signup">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>회원가입하기</span></div>
+  <div class="article-header">
+    <div class="article-cat">시작하기 · 1-2</div>
+    <h1 class="article-title">회원가입하기</h1>
+    <p class="article-desc">회사 이메일 인증을 통해 계정을 생성합니다. 이메일 인증 → 정보 입력 → 비밀번호 설정의 3단계로 진행됩니다.</p>
+  </div>
+
+  <div class="callout info">
+    <i class="fas fa-info-circle callout-icon"></i>
+    <div class="callout-body">
+      <strong>가입 전 확인하세요</strong>
+      반드시 <strong>@gowit.co.kr</strong> 회사 이메일로만 가입할 수 있습니다. 개인 이메일은 사용 불가합니다.
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-list-ol" style="color:var(--primary)"></i> 가입 절차 (3단계)</div>
+  <div class="steps-list">
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">1</div></div>
+      <div class="step-body">
+        <div class="step-ttl">기본 정보 입력</div>
+        <div class="step-dsc">이름, 밴드, 직책, 소속(사업부 / 팀 / 파트)을 선택합니다.</div>
+        <div class="step-sub">
+          <strong>밴드별 자동 역할 부여</strong><br>
+          · C1 → <span class="badge badge-user">user</span> 역할<br>
+          · C2 → <span class="badge badge-user">user</span> 역할<br>
+          · C3 (팀장·파트장) → <span class="badge badge-manager">manager</span> 역할<br>
+          · C4 (본부장·사업부장) → <span class="badge badge-manager">manager</span> 역할
+        </div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">2</div></div>
+      <div class="step-body">
+        <div class="step-ttl">이메일 인증</div>
+        <div class="step-dsc">회사 이메일을 입력하고 <strong>코드 전송</strong> 버튼을 클릭합니다. Outlook 수신함에서 6자리 코드를 확인 후 입력하고 <strong>확인</strong>을 클릭합니다.</div>
+        <div class="step-sub">
+          💌 인증 메일 발신: <code>admin@gowit.co.kr</code> (EmailJS · Outlook)<br>
+          ⏱ 코드 유효 시간: 10분<br>
+          📬 수신함에 없으면 <strong>스팸 폴더</strong>를 확인하세요
+        </div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">3</div></div>
+      <div class="step-body">
+        <div class="step-ttl">비밀번호 설정 &amp; 가입 완료</div>
+        <div class="step-dsc">비밀번호 6자 이상 입력 → <strong>가입 완료</strong> 버튼 클릭 → 성공 메시지 확인 후 로그인 탭으로 자동 이동됩니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-circle-xmark" style="color:var(--danger)"></i> 가입이 안 되는 경우</div>
+  <table class="a-table">
+    <thead><tr><th>증상</th><th>원인</th><th>해결 방법</th></tr></thead>
+    <tbody>
+      <tr><td>코드 전송 버튼 클릭 후 아무 반응 없음</td><td>네트워크 오류 또는 EmailJS 한도 초과</td><td>잠시 후 재시도 또는 관리자 문의</td></tr>
+      <tr><td>"해당 이메일은 사용할 수 없습니다" 오류</td><td>관리자 이메일(admin@gowit.co.kr)로 가입 시도</td><td>관리자 계정은 별도 부여됨. 개인 계정으로 가입</td></tr>
+      <tr><td>이미 가입된 이메일 오류</td><td>같은 이메일로 이미 계정 존재</td><td>로그인 탭에서 로그인 시도</td></tr>
+      <tr><td>인증 코드 오류</td><td>코드 만료(10분) 또는 잘못 입력</td><td>코드 재전송 버튼으로 새 코드 수신</td></tr>
+    </tbody>
+  </table>
+
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-login');setSbActive('sb-login');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">로그인하기</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-dashboard');setSbActive('sb-dashboard');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">홈 대시보드</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-1 대시보드 ──────────────────── -->
+<article class="g-page" id="p-dashboard">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>사용자 화면</span><span class="sep">/</span><span>홈 대시보드</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-1</div>
+    <h1 class="article-title">홈 대시보드</h1>
+    <p class="article-desc">로그인 직후 가장 먼저 보이는 화면입니다. 내 IDP 현황, 역량 차트, 피드백·1on1 요약을 한눈에 확인할 수 있습니다.</p>
+  </div>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="feat-icon fi-blue"><i class="fas fa-list-check"></i></div>
+      <div><div class="feat-name">IDP 실행 현황</div><div class="feat-desc">진행 중인 IDP 건수, 평균 달성률 요약 카드. 상태(임시저장/합의중/승인완료)별 건수 표시</div></div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon fi-purple"><i class="fas fa-spider"></i></div>
+      <div><div class="feat-name">역량 분포 레이더 차트</div><div class="feat-desc">직무역량 7개 + 리더십역량 현재 수준을 레이더(거미줄) 차트로 시각화</div></div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon fi-green"><i class="fas fa-comments"></i></div>
+      <div><div class="feat-name">최근 피드백</div><div class="feat-desc">가장 최근 수신·발신 피드백 3건 미리보기. 클릭하면 상세 내용 확인 가능</div></div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon fi-orange"><i class="fas fa-handshake"></i></div>
+      <div><div class="feat-name">1on1 현황</div><div class="feat-desc">완료된 1on1 미팅 횟수 및 다음 예정 일정 표시</div></div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon fi-teal"><i class="fas fa-calendar-alt"></i></div>
+      <div><div class="feat-name">역량 개발 사이클 타임라인</div><div class="feat-desc">관리자가 설정한 IDP 운영 기간 기준, 현재 단계(진단→작성→합의→실행→평가) 표시</div></div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon fi-red"><i class="fas fa-star"></i></div>
+      <div><div class="feat-name">평가 현황</div><div class="feat-desc">역량 평가 완료 여부 및 자기평가·상위자평가 점수 요약</div></div>
+    </div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-signup');setSbActive('sb-signup');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">회원가입하기</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-compdict');setSbActive('sb-compdict');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">역량사전 보기</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-2 역량사전 ──────────────────── -->
+<article class="g-page" id="p-compdict">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>역량사전</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-2</div>
+    <h1 class="article-title">역량사전</h1>
+    <p class="article-desc">직무역량 7개와 리더십역량(C1~C4 밴드별) 전체 역량의 정의·행동 기준·AI 활용 포인트를 조회합니다.</p>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-book-open" style="color:var(--warning)"></i> 역량 구성</div>
+  <table class="a-table">
+    <thead><tr><th>구분</th><th>항목 수</th><th>적용 대상</th><th>레벨 체계</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge" style="background:#FEF3C7;color:#D97706">직무역량</span></td><td>7개</td><td>전 밴드 공통</td><td>5단계 (이해→적용→분석→판단/평가→창의/혁신)</td></tr>
+      <tr><td><span class="badge" style="background:#DCFCE7;color:#16A34A">리더십역량</span></td><td>C1~C4 밴드별</td><td>밴드별 구분</td><td>3단계 (기초→실천→성장)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="a-h3">역량 카드 클릭 시 확인 가능한 정보</div>
+  <ul class="checklist">
+    <li>역량 정의 및 핵심 키워드</li>
+    <li>레벨별 행동 기술서 (직무역량: 5단계 / 리더십: 3단계)</li>
+    <li>AI 활용 포인트 — 각 역량을 AI 도구로 강화하는 방법</li>
+    <li>핵심 행동지표 목록</li>
+    <li>개발 목표 및 권장 학습 가이드 (리더십역량)</li>
+  </ul>
+
+  <div class="a-h2"><i class="fas fa-filter" style="color:var(--primary)"></i> 필터 &amp; 검색 사용법</div>
+  <div class="steps-list">
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">1</div></div>
+      <div class="step-body">
+        <div class="step-ttl">탭으로 구분 보기</div>
+        <div class="step-dsc">상단 탭에서 <strong>전체 / 직무역량 / 리더십역량</strong>을 선택합니다.</div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">2</div></div>
+      <div class="step-body">
+        <div class="step-ttl">밴드 필터 (리더십역량)</div>
+        <div class="step-dsc">리더십역량 탭에서 C4·C3·C2·C1 버튼을 클릭하면 해당 밴드 카드만 표시됩니다.</div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">3</div></div>
+      <div class="step-body">
+        <div class="step-ttl">검색어 입력</div>
+        <div class="step-dsc">검색창에 역량 이름이나 키워드를 입력하면 실시간으로 카드가 필터링됩니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-cards-blank" style="color:var(--warning)"></i> 실제 역량 카드 미리보기</div>
+  <p class="a-p" style="margin-bottom:16px;">아래는 실제 시스템과 동일한 역량 카드입니다.</p>
+  <div id="manualCompGrid"></div>
+
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-dashboard');setSbActive('sb-dashboard');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">홈 대시보드</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-compdiag');setSbActive('sb-compdiag');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">역량수준 진단</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-3 역량수준 진단 ──────────────────── -->
+<article class="g-page" id="p-compdiag">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>역량수준 진단</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-3</div>
+    <h1 class="article-title">역량수준 진단</h1>
+    <p class="article-desc">본인의 현재 역량 수준을 역량별로 자가 진단합니다. 진단 결과는 IDP 작성 시 목표 레벨 설정의 기준이 됩니다.</p>
+  </div>
+  <div class="a-h2"><i class="fas fa-clipboard-list" style="color:var(--primary)"></i> 진단 방법</div>
+  <div class="steps-list">
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">1</div></div>
+      <div class="step-body"><div class="step-ttl">역량별 점수 입력</div><div class="step-dsc">각 역량을 <strong>1~5점</strong>으로 평가합니다. 1점(이해 수준) ~ 5점(창의/혁신 수준)</div></div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">2</div></div>
+      <div class="step-body"><div class="step-ttl">진단 제출</div><div class="step-dsc"><strong>진단 완료</strong> 버튼을 클릭하면 결과가 저장됩니다.</div></div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">3</div></div>
+      <div class="step-body"><div class="step-ttl">레이더 차트 확인</div><div class="step-dsc">제출 후 직무역량·리더십역량 레이더 차트로 결과가 시각화됩니다. 대시보드에도 반영됩니다.</div></div>
+    </div>
+  </div>
+  <div class="callout tip">
+    <i class="fas fa-lightbulb callout-icon"></i>
+    <div class="callout-body">
+      <strong>IDP 작성과 연동됩니다</strong>
+      진단 결과(현재 레벨)는 IDP 작성 시 '현재 수준' 항목에 자동으로 불러와집니다. 진단 후 IDP를 작성하면 더욱 정확한 목표 설정이 가능합니다.
+    </div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-compdict');setSbActive('sb-compdict');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">역량사전 보기</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-idpwrite');setSbActive('sb-idpwrite');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">IDP 작성하기</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-4 IDP 작성 ──────────────────── -->
+<article class="g-page" id="p-idpwrite">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>IDP 관리</span><span class="sep">/</span><span>IDP 작성하기</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-4</div>
+    <h1 class="article-title">IDP 작성하기</h1>
+    <p class="article-desc">개인 역량 개발 계획(IDP)을 4단계 위저드 방식으로 작성합니다. 중간에 임시저장이 가능하므로 한 번에 완성하지 않아도 됩니다.</p>
+  </div>
+
+  <div class="callout success">
+    <i class="fas fa-circle-check callout-icon"></i>
+    <div class="callout-body">
+      <strong>역량수준 진단 먼저!</strong>
+      IDP 작성 전 역량수준 진단을 먼저 완료하면 '현재 수준'이 자동으로 불러와져 작성이 훨씬 편리합니다.
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-list-ol" style="color:var(--primary)"></i> 작성 단계 (4단계)</div>
+  <div class="steps-list">
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">1</div></div>
+      <div class="step-body">
+        <div class="step-ttl">역량 목표 선택</div>
+        <div class="step-dsc">역량사전에서 개발할 역량을 선택하고 목표 레벨(현재 레벨 + 1 권장)을 설정합니다.</div>
+        <div class="step-sub">
+          💡 <strong>추천 방법</strong><br>
+          역량수준 진단 결과를 바탕으로 가장 GAP이 큰 역량 1~2개를 선택하세요.<br>
+          목표 레벨은 현재 레벨보다 1단계 높게 설정하는 것이 현실적입니다.
+        </div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">2</div></div>
+      <div class="step-body">
+        <div class="step-ttl">실행 계획 수립</div>
+        <div class="step-dsc">역량별로 구체적인 실행 과제, 기간, 방법을 입력합니다.</div>
+        <div class="step-sub">
+          <strong>입력 항목</strong><br>
+          · 실행 과제명: 무엇을 할 것인지 구체적으로<br>
+          · 기간: 시작일 ~ 종료일<br>
+          · 방법: 교육/OJT/자기학습/코칭 등<br>
+          · 달성 기준: 어떻게 완료를 확인할지
+        </div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">3</div></div>
+      <div class="step-body">
+        <div class="step-ttl">합의 라인 지정</div>
+        <div class="step-dsc">직속 상위자부터 최종 합의자까지 순서대로 지정합니다. 합의 라인은 최소 1명 이상 지정해야 제출할 수 있습니다.</div>
+        <div class="step-sub">
+          <strong>예시 합의 라인 (김팀원의 경우)</strong><br>
+          1차: 이매니저 (C2 매니저) → 2차: 한파트 (C3 파트장) → 3차: 유팀장 (C4 팀장)
+        </div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">4</div></div>
+      <div class="step-body">
+        <div class="step-ttl">검토 &amp; 제출</div>
+        <div class="step-dsc">전체 내용을 최종 확인한 후 <strong>제출</strong> 버튼을 클릭합니다. 제출과 동시에 1차 합의자에게 합의 요청이 전달됩니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-floppy-disk" style="color:var(--primary)"></i> 임시저장 사용법</div>
+  <p class="a-p">작성 중 <strong>임시저장</strong> 버튼을 클릭하면 현재까지 입력한 내용이 저장됩니다. 이후 "IDP 작성" 메뉴에 재진입하면 이어서 작성할 수 있습니다.</p>
+  <div class="callout warn">
+    <i class="fas fa-triangle-exclamation callout-icon"></i>
+    <div class="callout-body">
+      <strong>임시저장 주의사항</strong>
+      임시저장 상태에서는 합의자에게 요청이 전달되지 않습니다. 반드시 <strong>제출</strong>까지 완료해야 합의가 시작됩니다.
+    </div>
+  </div>
+
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-compdiag');setSbActive('sb-compdiag');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">역량수준 진단</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-idpstatus');setSbActive('sb-idpstatus');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">IDP 현황 확인</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-5 IDP 현황 ──────────────────── -->
+<article class="g-page" id="p-idpstatus">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>IDP 관리</span><span class="sep">/</span><span>IDP 현황 확인</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-5</div>
+    <h1 class="article-title">IDP 현황 확인</h1>
+    <p class="article-desc">내가 작성한 IDP의 진행 상태를 확인하고, manager 역할은 담당 구성원의 IDP 현황도 조회할 수 있습니다.</p>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-circle-dot" style="color:var(--primary)"></i> IDP 상태 종류</div>
+  <div class="status-table">
+    <div class="status-row">
+      <div class="status-dot gray"></div>
+      <div class="status-name">임시저장</div>
+      <div class="status-desc">작성 중이지만 아직 제출하지 않은 상태. 합의자에게 전달되지 않음</div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot yellow"></div>
+      <div class="status-name">합의 요청</div>
+      <div class="status-desc">1차 합의자에게 검토 요청이 전달된 상태. 합의자의 응답 대기 중</div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot orange"></div>
+      <div class="status-name">합의 진행중</div>
+      <div class="status-desc">일부 합의자가 승인 완료. 다음 합의자 검토 대기 중</div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot green"></div>
+      <div class="status-name">최종 승인</div>
+      <div class="status-desc">모든 합의자가 승인 완료한 상태. IDP 실행 단계 진입</div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot red"></div>
+      <div class="status-name">반려</div>
+      <div class="status-desc">합의자가 수정 요청과 함께 반려. 내용 수정 후 재제출 필요</div>
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-rotate-right" style="color:var(--danger)"></i> 반려 후 재제출 방법</div>
+  <div class="steps-list">
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">1</div></div>
+      <div class="step-body"><div class="step-ttl">반려 사유 확인</div><div class="step-dsc">IDP 상세 보기에서 합의자가 남긴 반려 사유를 확인합니다.</div></div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">2</div></div>
+      <div class="step-body"><div class="step-ttl">내용 수정</div><div class="step-dsc">반려된 IDP의 <strong>수정</strong> 버튼을 클릭해 내용을 수정합니다. 기존 내용이 그대로 불러와집니다.</div></div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">3</div></div>
+      <div class="step-body"><div class="step-ttl">재제출</div><div class="step-dsc">수정 완료 후 다시 제출하면 합의 라인 처음부터 재시작됩니다.</div></div>
+    </div>
+  </div>
+
+  <div class="a-h2"><i class="fas fa-users" style="color:var(--primary)"></i> 구성원 IDP 현황 (manager 전용)</div>
+  <p class="a-p"><span class="badge badge-manager">manager</span> 역할은 사이드바에서 <strong>구성원 IDP 현황</strong> 메뉴를 통해 합의 라인에 포함된 하위 구성원들의 IDP 상태를 조회할 수 있습니다.</p>
+
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-idpwrite');setSbActive('sb-idpwrite');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">IDP 작성하기</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-idpagree');setSbActive('sb-idpagree');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">IDP 합의</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-6 IDP 합의 ──────────────────── -->
+<article class="g-page" id="p-idpagree">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>IDP 관리</span><span class="sep">/</span><span>IDP 합의</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-6</div>
+    <h1 class="article-title">IDP 합의 (승인 / 반려)</h1>
+    <p class="article-desc">내가 합의자로 지정된 구성원의 IDP를 검토하고 승인 또는 반려합니다. manager 역할만 표시됩니다.</p>
+  </div>
+  <div class="callout warn">
+    <i class="fas fa-triangle-exclamation callout-icon"></i>
+    <div class="callout-body">
+      <strong>표시 조건</strong>
+      이 메뉴는 <span class="badge badge-manager">manager</span> 역할이며, 실제로 합의자로 지정된 IDP가 있는 경우에만 사이드바에 표시됩니다.
+    </div>
+  </div>
+  <div class="a-h2"><i class="fas fa-check-to-slot" style="color:var(--success)"></i> 승인하기</div>
+  <div class="steps-list">
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">1</div></div>
+      <div class="step-body"><div class="step-ttl">합의 요청 목록 확인</div><div class="step-dsc">IDP 합의 메뉴에서 내가 검토해야 할 IDP 목록을 확인합니다.</div></div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">2</div></div>
+      <div class="step-body"><div class="step-ttl">IDP 내용 검토</div><div class="step-dsc">역량 목표, 실행 계획, 기간이 적절한지 검토합니다.</div></div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">3</div></div>
+      <div class="step-body"><div class="step-ttl">승인 또는 반려</div><div class="step-dsc"><strong>승인</strong> 클릭 시 다음 합의자에게 자동 전달됩니다. <strong>반려</strong> 클릭 시 사유 입력 후 작성자에게 반환됩니다.</div></div>
+    </div>
+  </div>
+  <div class="a-h2"><i class="fas fa-diagram-project" style="color:var(--primary)"></i> 합의 라인 흐름</div>
+  <div class="mock-ui">
+    <div class="mock-titlebar">
+      <div class="mock-dots"><div class="mock-dot r"></div><div class="mock-dot y"></div><div class="mock-dot g"></div></div>
+      <span class="mock-tab">IDP 합의 흐름 예시</span>
+    </div>
+    <div class="mock-body">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;">
+        <div style="padding:8px 14px;background:#EEF2FF;border-radius:8px;border:1.5px solid var(--primary);color:var(--primary);font-weight:700;">김팀원 제출</div>
+        <i class="fas fa-arrow-right" style="color:var(--gray-light)"></i>
+        <div style="padding:8px 14px;background:#FFF7ED;border-radius:8px;border:1.5px solid #F59E0B;color:#D97706;font-weight:700;">이매니저 검토 중</div>
+        <i class="fas fa-arrow-right" style="color:var(--gray-light)"></i>
+        <div style="padding:8px 14px;background:#F9FAFB;border-radius:8px;border:1.5px solid var(--border);color:var(--gray-light);font-weight:600;">한파트 대기</div>
+        <i class="fas fa-arrow-right" style="color:var(--gray-light)"></i>
+        <div style="padding:8px 14px;background:#F9FAFB;border-radius:8px;border:1.5px solid var(--border);color:var(--gray-light);font-weight:600;">유팀장 대기</div>
+      </div>
+    </div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-idpstatus');setSbActive('sb-idpstatus');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">IDP 현황 확인</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-feedback');setSbActive('sb-feedback');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">실행 피드백</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-8 피드백 ──────────────────── -->
+<article class="g-page" id="p-feedback">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>피드백 &amp; 평가</span><span class="sep">/</span><span>실행 피드백</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-8</div>
+    <h1 class="article-title">실행 피드백</h1>
+    <p class="article-desc">IDP 실행 과정에서 상위자가 하위 구성원에게 피드백을 제공합니다. 피드백 내용은 역량 개발의 방향성을 구체화하는 데 활용됩니다.</p>
+  </div>
+  <div class="a-h2"><i class="fas fa-comments" style="color:var(--success)"></i> 메뉴 구성</div>
+  <table class="a-table">
+    <thead><tr><th>메뉴</th><th>역할</th><th>주요 기능</th></tr></thead>
+    <tbody>
+      <tr><td>내 실행 피드백</td><td><span class="badge badge-user">user</span> <span class="badge badge-manager">manager</span></td><td>상위자로부터 수신한 피드백 목록 조회 및 상세 내용 확인</td></tr>
+      <tr><td>구성원 실행 피드백</td><td><span class="badge badge-manager">manager</span></td><td>하위 구성원에게 피드백 작성·발송, 이전 피드백 이력 조회</td></tr>
+    </tbody>
+  </table>
+  <div class="a-h3">피드백 작성 방법 (manager)</div>
+  <div class="steps-list">
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">1</div></div>
+      <div class="step-body"><div class="step-ttl">구성원 선택</div><div class="step-dsc">구성원 실행 피드백 메뉴에서 피드백을 줄 구성원을 선택합니다.</div></div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">2</div></div>
+      <div class="step-body"><div class="step-ttl">피드백 내용 작성</div><div class="step-dsc">역량별로 잘한 점, 개선점, 구체적인 제안을 작성합니다.</div></div>
+    </div>
+    <div class="step-row">
+      <div class="step-line"><div class="step-dot">3</div></div>
+      <div class="step-body"><div class="step-ttl">발송</div><div class="step-dsc">발송 버튼을 클릭하면 해당 구성원의 '내 실행 피드백'에 바로 반영됩니다.</div></div>
+    </div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-idpagree');setSbActive('sb-idpagree');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">IDP 합의</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-eval');setSbActive('sb-eval');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">역량개발 평가</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-9 평가 ──────────────────── -->
+<article class="g-page" id="p-eval">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>피드백 &amp; 평가</span><span class="sep">/</span><span>역량개발 평가</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-9</div>
+    <h1 class="article-title">역량개발 평가</h1>
+    <p class="article-desc">IDP 실행 기간 종료 후 역량 개발 결과를 평가합니다. 자기평가와 상위자 평가(1차·2차)로 구성됩니다.</p>
+  </div>
+  <div class="callout warn">
+    <i class="fas fa-triangle-exclamation callout-icon"></i>
+    <div class="callout-body">
+      <strong>표시 조건</strong>
+      역량개발 평가 메뉴는 <span class="badge badge-manager">manager</span> 역할에게만 표시됩니다. 1차 평가자 → 2차 평가자 순서로 진행됩니다.
+    </div>
+  </div>
+  <div class="a-h2"><i class="fas fa-star-half-alt" style="color:var(--warning)"></i> 평가 구성</div>
+  <table class="a-table">
+    <thead><tr><th>평가 구분</th><th>담당</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td>자기평가</td><td>본인 (모든 역할)</td><td>본인이 판단하는 역량별 달성 수준 입력</td></tr>
+      <tr><td>1차 평가</td><td>직속 상위자 (C2~C3)</td><td>구성원의 역량 개발 결과를 평가자 관점에서 평가</td></tr>
+      <tr><td>2차 평가</td><td>상위 관리자 (C3~C4)</td><td>1차 평가 완료 후 최종 확인 및 조정</td></tr>
+    </tbody>
+  </table>
+  <div class="a-h3">최종 점수 산출 방식</div>
+  <p class="a-p">최종 점수 = <strong>자기평가 × 비중% + 1차 평가 × 비중% + 2차 평가 × 비중%</strong></p>
+  <p class="a-p">평가 비중은 관리자 콘솔 → 평가 관리 → 평가 비중 설정에서 조정할 수 있습니다.</p>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-feedback');setSbActive('sb-feedback');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">실행 피드백</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-oo1');setSbActive('sb-oo1');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">1on1 관리</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-10 1on1 ──────────────────── -->
+<article class="g-page" id="p-oo1">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>피드백 &amp; 평가</span><span class="sep">/</span><span>1on1 관리</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-10</div>
+    <h1 class="article-title">1on1 관리</h1>
+    <p class="article-desc">상위자와 구성원 간 정기 1on1 미팅 일정을 관리하고 미팅 기록을 저장합니다.</p>
+  </div>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="feat-icon fi-teal"><i class="fas fa-chart-column"></i></div>
+      <div><div class="feat-name">1on1 현황 통계</div><div class="feat-desc">완료된 1on1 건수, 참여율, 구성원별 현황 차트로 시각화</div></div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon fi-blue"><i class="fas fa-calendar-plus"></i></div>
+      <div><div class="feat-name">일정 등록</div><div class="feat-desc">1on1 미팅 날짜·시간·참여자 등록. 정기 일정 반복 등록 가능</div></div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon fi-green"><i class="fas fa-file-lines"></i></div>
+      <div><div class="feat-name">미팅 기록 작성</div><div class="feat-desc">미팅 완료 후 논의 내용, 액션아이템, 다음 약속 기록</div></div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon fi-orange"><i class="fas fa-paperclip"></i></div>
+      <div><div class="feat-name">증빙 파일 첨부</div><div class="feat-desc">미팅 관련 자료(회의록, 발표자료 등) 파일 첨부 및 관리</div></div>
+    </div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-eval');setSbActive('sb-eval');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">역량개발 평가</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-analysis');setSbActive('sb-analysis');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">결과 분석</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-11 결과 분석 ──────────────────── -->
+<article class="g-page" id="p-analysis">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>결과 &amp; 설정</span><span class="sep">/</span><span>결과 분석</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-11</div>
+    <h1 class="article-title">결과 분석</h1>
+    <p class="article-desc">역량 개발 현황과 IDP 달성률을 차트로 시각화하고 분석합니다.</p>
+  </div>
+  <div class="feat-grid">
+    <div class="feat-card"><div class="feat-icon fi-purple"><i class="fas fa-spider"></i></div><div><div class="feat-name">역량 레이더 차트</div><div class="feat-desc">직무·리더십 역량 현재 수준을 레이더 차트로 표시. 목표 수준과 비교 가능</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-blue"><i class="fas fa-chart-bar"></i></div><div><div class="feat-name">IDP 달성률 분석</div><div class="feat-desc">목표 대비 실행 달성률 바 차트. 역량별·기간별 분석</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-green"><i class="fas fa-users"></i></div><div><div class="feat-name">구성원 비교 분석</div><div class="feat-desc">동일 밴드 내 역량 수준 비교 (manager 역할). 팀 전체 역량 현황 파악</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-orange"><i class="fas fa-table-cells"></i></div><div><div class="feat-name">간트 차트</div><div class="feat-desc">IDP 실행 계획의 기간별 진행 현황을 타임라인으로 표시</div></div></div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-oo1');setSbActive('sb-oo1');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">1on1 관리</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-settings');setSbActive('sb-settings');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">설정</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 2-12 설정 ──────────────────── -->
+<article class="g-page" id="p-settings">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>결과 &amp; 설정</span><span class="sep">/</span><span>설정</span></div>
+  <div class="article-header">
+    <div class="article-cat">사용자 화면 · 2-12</div>
+    <h1 class="article-title">설정</h1>
+    <p class="article-desc">내 계정 정보 확인 및 데이터 관리 기능을 제공합니다.</p>
+  </div>
+  <table class="a-table">
+    <thead><tr><th>항목</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td>프로필 정보</td><td>이름, 소속(사업부/팀/파트), 직책, 밴드, 역할 확인</td></tr>
+      <tr><td>데이터 백업</td><td>IDP·피드백·1on1 전체 데이터를 JSON 파일로 다운로드</td></tr>
+      <tr><td>IDP Excel 다운로드</td><td>내 IDP 데이터를 CSV(Excel) 형식으로 내보내기</td></tr>
+      <tr><td>저장 용량 정보</td><td>현재 localStorage 사용량(KB) 및 저장된 데이터 건수 확인</td></tr>
+      <tr><td>로그아웃</td><td>sessionStorage 세션 종료 → login.html로 이동</td></tr>
+    </tbody>
+  </table>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-analysis');setSbActive('sb-analysis');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">결과 분석</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-admdash');setSbActive('sb-admdash');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">관리자 대시보드</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 3-1 관리자 대시보드 ──────────────────── -->
+<article class="g-page" id="p-admdash">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>운영 현황</span></div>
+  <div class="article-header">
+    <div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-1</div>
+    <h1 class="article-title">운영 현황 대시보드</h1>
+    <p class="article-desc">전체 시스템 운영 현황을 한눈에 파악합니다. admin 계정 전용 화면(admin.html)입니다.</p>
+  </div>
+  <div class="callout danger">
+    <i class="fas fa-shield-halved callout-icon"></i>
+    <div class="callout-body">
+      <strong>관리자 전용</strong>
+      관리자 콘솔은 <span class="badge badge-admin">admin</span> 역할 계정으로만 접근할 수 있습니다. 일반/매니저 계정으로 admin.html에 직접 접속하면 자동으로 login.html로 이동됩니다.
+    </div>
+  </div>
+  <div class="feat-grid">
+    <div class="feat-card"><div class="feat-icon fi-purple"><i class="fas fa-users"></i></div><div><div class="feat-name">통계 카드</div><div class="feat-desc">전체 직원 수, 전체 IDP 건수, 합의 대기 건수, 최종 승인 건수를 카드로 표시</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-blue"><i class="fas fa-table"></i></div><div><div class="feat-name">직원별 IDP 현황 테이블</div><div class="feat-desc">전 직원의 IDP 작성·합의·승인 상태를 테이블로 조회</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-orange"><i class="fas fa-chart-bar"></i></div><div><div class="feat-name">역량 분포 차트</div><div class="feat-desc">전 직원 역량 수준 분포 현황 바 차트. 밴드별·역량별 필터 가능</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-green"><i class="fas fa-history"></i></div><div><div class="feat-name">활동 로그</div><div class="feat-desc">시스템 내 주요 활동(IDP 제출·승인·반려·계정 생성 등) 이력 타임라인</div></div></div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-settings');setSbActive('sb-settings');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">설정</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-adm-org');setSbActive('sb-adm-org');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">조직 관리</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 3-2 조직 관리 ──────────────────── -->
+<article class="g-page" id="p-adm-org">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>조직 관리</span></div>
+  <div class="article-header">
+    <div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-2</div>
+    <h1 class="article-title">조직 관리</h1>
+    <p class="article-desc">사업부 → 팀 → 파트 계층 구조의 조직도를 관리합니다. 추가·수정·삭제한 조직 정보는 회원가입의 소속 선택에 즉시 반영됩니다.</p>
+  </div>
+  <div class="a-h2"><i class="fas fa-sitemap" style="color:var(--admin)"></i> 조직 계층 구조</div>
+  <div class="mock-ui">
+    <div class="mock-titlebar">
+      <div class="mock-dots"><div class="mock-dot r"></div><div class="mock-dot y"></div><div class="mock-dot g"></div></div>
+      <span class="mock-tab">조직 구조 예시</span>
+    </div>
+    <div class="mock-body" style="font-size:13px;line-height:2;">
+      <div>📁 <strong>사업본부</strong> (사업부)</div>
+      <div style="padding-left:20px;">📂 <strong>경영지원팀</strong> (팀)</div>
+      <div style="padding-left:40px;">📄 기획마케팅 (파트)</div>
+      <div style="padding-left:40px;">📄 경영지원 (파트)</div>
+    </div>
+  </div>
+  <ul class="checklist">
+    <li>사업부 추가/수정/삭제</li>
+    <li>팀 추가/수정/삭제 (상위 사업부 지정)</li>
+    <li>파트 추가/수정/삭제 (상위 팀 지정)</li>
+    <li>변경사항은 회원가입 소속 선택 드롭다운에 즉시 반영</li>
+  </ul>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-admdash');setSbActive('sb-admdash');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">운영 현황 대시보드</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-adm-band');setSbActive('sb-adm-band');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">밴드·직책 관리</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 3-3 밴드·직책 ──────────────────── -->
+<article class="g-page" id="p-adm-band">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>밴드·직책 관리</span></div>
+  <div class="article-header">
+    <div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-3</div>
+    <h1 class="article-title">밴드·직책 관리</h1>
+    <p class="article-desc">C1~C4 밴드 정보와 각 밴드에 속하는 직책을 관리합니다. 신규 직책을 추가하면 사용자 관리의 직책 드롭다운에 즉시 반영됩니다.</p>
+  </div>
+  <div class="a-h2"><i class="fas fa-layer-group" style="color:var(--admin)"></i> 밴드 체계</div>
+  <table class="a-table admin">
+    <thead><tr><th>밴드</th><th>명칭</th><th>기본 역할</th><th>역량 레벨 체계</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-c1">C1</span></td><td>팀원·사원</td><td><span class="badge badge-user">user</span></td><td>리더십역량 3단계 (기초·실천·성장)</td></tr>
+      <tr><td><span class="badge badge-c2">C2</span></td><td>매니저</td><td><span class="badge badge-manager">manager</span></td><td>리더십역량 3단계</td></tr>
+      <tr><td><span class="badge badge-c3">C3</span></td><td>팀장·파트장</td><td><span class="badge badge-manager">manager</span></td><td>리더십역량 3단계</td></tr>
+      <tr><td><span class="badge badge-c4">C4</span></td><td>본부장·사업부장</td><td><span class="badge badge-manager">manager</span></td><td>리더십역량 3단계</td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip">
+    <i class="fas fa-lightbulb callout-icon"></i>
+    <div class="callout-body">
+      <strong>직책 추가 시 즉시 반영</strong>
+      신규 직책을 추가하면 사용자 관리 화면의 직책 드롭다운에 즉시 반영됩니다. 페이지 새로고침 없이 바로 확인 가능합니다.
+    </div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-adm-org');setSbActive('sb-adm-org');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">조직 관리</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-adm-user');setSbActive('sb-adm-user');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">사용자 관리</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 3-4 사용자 관리 ──────────────────── -->
+<article class="g-page" id="p-adm-user">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>사용자 관리</span></div>
+  <div class="article-header">
+    <div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-4</div>
+    <h1 class="article-title">사용자 관리</h1>
+    <p class="article-desc">전체 직원 계정을 조회하고 추가·수정·삭제합니다. 회원가입한 신규 사용자도 이 화면에서 확인할 수 있습니다.</p>
+  </div>
+  <div class="a-h2"><i class="fas fa-users-gear" style="color:var(--admin)"></i> 주요 기능</div>
+  <table class="a-table admin">
+    <thead><tr><th>기능</th><th>사용 방법</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td>직원 목록 조회</td><td>기본 화면에서 이름·이메일·밴드·직책·소속·역할 전체 표시</td><td>—</td></tr>
+      <tr><td>검색</td><td>상단 검색창에 이름 또는 이메일 입력</td><td>실시간 필터링</td></tr>
+      <tr><td>밴드 필터</td><td>밴드 드롭다운에서 C1~C4 선택</td><td>—</td></tr>
+      <tr><td>직원 추가</td><td><strong>직원 추가</strong> 버튼 → 이름·이메일·밴드·직책·소속 입력 후 저장</td><td>비밀번호 초기값 필요</td></tr>
+      <tr><td>직원 수정</td><td>목록 행의 ✏️ 버튼 클릭 → 필드 수정 → 저장</td><td>이메일 변경 불가</td></tr>
+      <tr><td>직원 삭제</td><td>목록 행의 🗑️ 버튼 클릭 → 확인 다이얼로그</td><td>삭제 후 복원 불가</td></tr>
+    </tbody>
+  </table>
+
+  <div class="a-h3">신규 가입자가 보이지 않을 때</div>
+  <div class="callout info">
+    <i class="fas fa-info-circle callout-icon"></i>
+    <div class="callout-body">
+      다른 탭(브라우저)에서 회원가입한 신규 사용자가 목록에 표시되지 않으면, <strong>사용자 관리 탭을 클릭</strong>하거나 <strong>페이지를 새로고침</strong>하세요. 탭 이동 시 자동으로 최신 데이터를 불러옵니다.
+    </div>
+  </div>
+
+  <div class="a-h3">관리자 계정 보호</div>
+  <div class="callout warn">
+    <i class="fas fa-triangle-exclamation callout-icon"></i>
+    <div class="callout-body">
+      <strong>admin@gowit.co.kr</strong>로는 일반 회원가입이 불가합니다. 관리자 계정은 시스템에서만 부여됩니다. 만약 같은 이메일로 가입된 일반 계정이 있다면 자동으로 제거됩니다.
+    </div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-adm-band');setSbActive('sb-adm-band');return false;" href="#">
+      <i class="pn-arrow fas fa-arrow-left"></i>
+      <div><div class="pn-label">이전</div><div class="pn-title">밴드·직책 관리</div></div>
+    </a>
+    <a class="pn-btn next" onclick="showPage('p-adm-idp');setSbActive('sb-adm-idp');return false;" href="#">
+      <div><div class="pn-label">다음</div><div class="pn-title">IDP 현황 관리</div></div>
+      <i class="pn-arrow fas fa-arrow-right"></i>
+    </a>
+  </div>
+</article>
+
+<!-- ──────────────────── 3-5 ~ 3-10 (간략 페이지들) ──────────────────── -->
+<article class="g-page" id="p-adm-idp">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>IDP 현황 관리</span></div>
+  <div class="article-header"><div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-5</div><h1 class="article-title">IDP 현황 관리</h1><p class="article-desc">전 직원의 IDP 작성·제출·합의 현황을 한눈에 조회합니다.</p></div>
+  <div class="a-h2"><i class="fas fa-list-check" style="color:var(--admin)"></i> 주요 기능</div>
+  <ul class="checklist">
+    <li>전 직원 IDP 목록 조회 (이름·역량·상태·합의 진행 현황)</li>
+    <li>상태별 필터링 (임시저장/합의중/최종승인/반려)</li>
+    <li>IDP 상세 내용 클릭하여 확인</li>
+    <li>밴드·부서별 IDP 작성률 통계</li>
+  </ul>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-adm-user');setSbActive('sb-adm-user');return false;" href="#"><i class="pn-arrow fas fa-arrow-left"></i><div><div class="pn-label">이전</div><div class="pn-title">사용자 관리</div></div></a>
+    <a class="pn-btn next" onclick="showPage('p-adm-comp');setSbActive('sb-adm-comp');return false;" href="#"><div><div class="pn-label">다음</div><div class="pn-title">역량사전 관리</div></div><i class="pn-arrow fas fa-arrow-right"></i></a>
+  </div>
+</article>
+
+<article class="g-page" id="p-adm-comp">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>역량사전 관리</span></div>
+  <div class="article-header"><div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-6</div><h1 class="article-title">역량사전 관리</h1><p class="article-desc">역량 항목의 정의, 행동 기준, 레벨 설명, AI 활용 포인트를 관리합니다. 수정 내용은 사용자 화면의 역량사전에 즉시 반영됩니다.</p></div>
+  <div class="a-h2"><i class="fas fa-pen-to-square" style="color:var(--admin)"></i> 편집 가능 항목</div>
+  <ul class="checklist">
+    <li>역량 이름 및 아이콘</li>
+    <li>역량 정의(정의문)</li>
+    <li>레벨별 행동 기술서 (직무역량: 5단계 / 리더십: 3단계)</li>
+    <li>AI 활용 포인트</li>
+    <li>핵심 행동지표 목록</li>
+    <li>개발 목표 및 권장 학습 가이드</li>
+  </ul>
+  <div class="callout tip"><i class="fas fa-lightbulb callout-icon"></i><div class="callout-body"><strong>즉시 반영</strong> 역량사전 수정 내용은 사용자 화면의 역량사전 카드에 즉시 반영됩니다.</div></div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-adm-idp');setSbActive('sb-adm-idp');return false;" href="#"><i class="pn-arrow fas fa-arrow-left"></i><div><div class="pn-label">이전</div><div class="pn-title">IDP 현황 관리</div></div></a>
+    <a class="pn-btn next" onclick="showPage('p-adm-goal');setSbActive('sb-adm-goal');return false;" href="#"><div><div class="pn-label">다음</div><div class="pn-title">역량 목표 관리</div></div><i class="pn-arrow fas fa-arrow-right"></i></a>
+  </div>
+</article>
+
+<article class="g-page" id="p-adm-goal">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>역량 목표 관리</span></div>
+  <div class="article-header"><div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-7</div><h1 class="article-title">역량 목표 관리</h1><p class="article-desc">밴드(C1~C4)별로 요구되는 역량 목표 수준을 설정합니다. 설정된 목표는 사용자의 역량 목표 관리 화면에 표시됩니다.</p></div>
+  <div class="a-h2"><i class="fas fa-bullseye" style="color:var(--admin)"></i> 설정 방법</div>
+  <div class="steps-list">
+    <div class="step-row"><div class="step-line"><div class="step-dot">1</div></div><div class="step-body"><div class="step-ttl">밴드 선택</div><div class="step-dsc">목표를 설정할 밴드(C1~C4)를 선택합니다.</div></div></div>
+    <div class="step-row"><div class="step-line"><div class="step-dot">2</div></div><div class="step-body"><div class="step-ttl">역량별 목표 레벨 입력</div><div class="step-dsc">각 역량에 대해 해당 밴드가 달성해야 할 목표 레벨(1~5)을 설정합니다.</div></div></div>
+    <div class="step-row"><div class="step-line"><div class="step-dot">3</div></div><div class="step-body"><div class="step-ttl">저장</div><div class="step-dsc">저장 시 사용자 화면의 역량 목표 관리 메뉴에 즉시 반영됩니다.</div></div></div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-adm-comp');setSbActive('sb-adm-comp');return false;" href="#"><i class="pn-arrow fas fa-arrow-left"></i><div><div class="pn-label">이전</div><div class="pn-title">역량사전 관리</div></div></a>
+    <a class="pn-btn next" onclick="showPage('p-adm-period');setSbActive('sb-adm-period');return false;" href="#"><div><div class="pn-label">다음</div><div class="pn-title">IDP 실행 기간 설정</div></div><i class="pn-arrow fas fa-arrow-right"></i></a>
+  </div>
+</article>
+
+<article class="g-page" id="p-adm-period">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>IDP 실행 기간</span></div>
+  <div class="article-header"><div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-8</div><h1 class="article-title">IDP 실행 기간 설정</h1><p class="article-desc">IDP 운영 사이클(기간 이름, 시작일, 종료일)을 설정합니다.</p></div>
+  <div class="a-h2"><i class="fas fa-calendar-check" style="color:var(--admin)"></i> 설정 항목</div>
+  <table class="a-table admin">
+    <thead><tr><th>항목</th><th>설명</th><th>예시</th></tr></thead>
+    <tbody>
+      <tr><td>기간 이름</td><td>해당 IDP 사이클의 이름</td><td>2026년 상반기</td></tr>
+      <tr><td>시작일</td><td>IDP 실행 시작 날짜</td><td>2026-01-01</td></tr>
+      <tr><td>종료일</td><td>IDP 실행 종료 날짜</td><td>2026-06-30</td></tr>
+    </tbody>
+  </table>
+  <div class="callout info"><i class="fas fa-info-circle callout-icon"></i><div class="callout-body"><strong>반영 위치</strong> 설정된 기간은 사용자 사이드바 하단 배지 및 대시보드의 역량 개발 사이클 타임라인에 표시됩니다.</div></div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-adm-goal');setSbActive('sb-adm-goal');return false;" href="#"><i class="pn-arrow fas fa-arrow-left"></i><div><div class="pn-label">이전</div><div class="pn-title">역량 목표 관리</div></div></a>
+    <a class="pn-btn next" onclick="showPage('p-adm-eval');setSbActive('sb-adm-eval');return false;" href="#"><div><div class="pn-label">다음</div><div class="pn-title">평가 관리</div></div><i class="pn-arrow fas fa-arrow-right"></i></a>
+  </div>
+</article>
+
+<article class="g-page" id="p-adm-eval">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>평가 관리</span></div>
+  <div class="article-header"><div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-9</div><h1 class="article-title">평가 관리</h1><p class="article-desc">전 직원 역량 평가 현황 조회 및 평가 비중·점수 산정 방식을 설정합니다.</p></div>
+  <table class="a-table admin">
+    <thead><tr><th>서브메뉴</th><th>기능</th></tr></thead>
+    <tbody>
+      <tr><td>평가 관리</td><td>전 직원 역량 평가 현황(자기/1차/2차) 조회 및 상태 관리</td></tr>
+      <tr><td>평가 비중 설정</td><td>자기평가·1차평가·2차평가 비중(%) 설정. 합계 100%</td></tr>
+      <tr><td>점수 산정 방식</td><td>최종 점수 계산 방식 및 등급 기준 (S/A/B/C/D) 설정</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn"><i class="fas fa-triangle-exclamation callout-icon"></i><div class="callout-body"><strong>비중 합계 100% 필수</strong> 자기평가 + 1차 + 2차 평가의 비중 합이 반드시 100%여야 저장됩니다.</div></div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-adm-period');setSbActive('sb-adm-period');return false;" href="#"><i class="pn-arrow fas fa-arrow-left"></i><div><div class="pn-label">이전</div><div class="pn-title">IDP 실행 기간 설정</div></div></a>
+    <a class="pn-btn next" onclick="showPage('p-adm-sys');setSbActive('sb-adm-sys');return false;" href="#"><div><div class="pn-label">다음</div><div class="pn-title">시스템 관리</div></div><i class="pn-arrow fas fa-arrow-right"></i></a>
+  </div>
+</article>
+
+<article class="g-page" id="p-adm-sys">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>관리자 콘솔</span><span class="sep">/</span><span>시스템 관리</span></div>
+  <div class="article-header"><div class="article-cat" style="color:var(--admin)">관리자 콘솔 · 3-10</div><h1 class="article-title">시스템 관리</h1><p class="article-desc">전체 데이터 저장 현황 조회 및 데이터 초기화 기능을 제공합니다.</p></div>
+  <table class="a-table admin">
+    <thead><tr><th>기능</th><th>설명</th></tr></thead>
+    <tbody>
+      <tr><td>시스템 통계</td><td>IDP·피드백·1on1·사용자 데이터 건수 및 localStorage 사용량(KB) 조회</td></tr>
+      <tr><td>데이터 초기화</td><td>특정 데이터(IDP·피드백·1on1 등) 또는 전체 데이터 삭제</td></tr>
+    </tbody>
+  </table>
+  <div class="callout danger"><i class="fas fa-circle-exclamation callout-icon"></i><div class="callout-body"><strong>⚠️ 되돌릴 수 없습니다</strong> 데이터 초기화는 즉시 실행되며 복구가 불가능합니다. 테스트 목적 외에는 사용하지 마세요.</div></div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-adm-eval');setSbActive('sb-adm-eval');return false;" href="#"><i class="pn-arrow fas fa-arrow-left"></i><div><div class="pn-label">이전</div><div class="pn-title">평가 관리</div></div></a>
+    <a class="pn-btn next" onclick="showPage('p-perm');setSbActive('sb-perm');return false;" href="#"><div><div class="pn-label">다음</div><div class="pn-title">역할별 권한 표</div></div><i class="pn-arrow fas fa-arrow-right"></i></a>
+  </div>
+</article>
+
+<!-- ──────────────────── 역할별 권한 ──────────────────── -->
+<article class="g-page" id="p-perm">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>부록</span><span class="sep">/</span><span>역할별 권한 표</span></div>
+  <div class="article-header">
+    <div class="article-cat">부록</div>
+    <h1 class="article-title">역할별 메뉴 접근 권한</h1>
+    <p class="article-desc">user / manager / admin 역할에 따라 표시되는 메뉴와 수행 가능한 기능이 다릅니다.</p>
+  </div>
+  <table class="perm-table">
+    <thead>
+      <tr>
+        <th>메뉴</th>
+        <th><span class="badge badge-user">user</span></th>
+        <th><span class="badge badge-manager">manager</span></th>
+        <th><span class="badge badge-admin">admin</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>홈 대시보드</td><td><span class="chk-yes">✓</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>역량사전</td><td><span class="chk-yes">✓</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>역량수준 진단</td><td><span class="chk-yes">✓</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>IDP 작성</td><td><span class="chk-yes">✓</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>내 IDP 현황</td><td><span class="chk-yes">✓</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>구성원 IDP 현황</td><td><span class="chk-no">—</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>IDP 합의 (승인/반려)</td><td><span class="chk-no">—</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>역량 목표 관리</td><td><span class="chk-no">—</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>내 실행 피드백 (수신)</td><td><span class="chk-yes">✓</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>구성원 실행 피드백 (발송)</td><td><span class="chk-no">—</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>역량개발 평가 (상위자 평가)</td><td><span class="chk-no">—</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>1on1 관리</td><td><span class="chk-yes">✓</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>결과 분석</td><td><span class="chk-yes">✓</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td>설정</td><td><span class="chk-yes">✓</span></td><td><span class="chk-yes">✓</span></td><td><span class="chk-no">—</span></td></tr>
+      <tr><td colspan="4" style="background:#F5F3FF;color:var(--admin);font-weight:700;font-size:12px;padding:8px 14px;">관리자 콘솔 (admin.html)</td></tr>
+      <tr><td>운영 현황 대시보드</td><td><span class="chk-no">—</span></td><td><span class="chk-no">—</span></td><td><span class="chk-yes">✓</span></td></tr>
+      <tr><td>조직·밴드·사용자 관리</td><td><span class="chk-no">—</span></td><td><span class="chk-no">—</span></td><td><span class="chk-yes">✓</span></td></tr>
+      <tr><td>IDP·역량·평가 관리</td><td><span class="chk-no">—</span></td><td><span class="chk-no">—</span></td><td><span class="chk-yes">✓</span></td></tr>
+      <tr><td>시스템 관리 (데이터 초기화)</td><td><span class="chk-no">—</span></td><td><span class="chk-no">—</span></td><td><span class="chk-yes">✓</span></td></tr>
+    </tbody>
+  </table>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-adm-sys');setSbActive('sb-adm-sys');return false;" href="#"><i class="pn-arrow fas fa-arrow-left"></i><div><div class="pn-label">이전</div><div class="pn-title">시스템 관리</div></div></a>
+    <a class="pn-btn next" onclick="showPage('p-notice');setSbActive('sb-notice');return false;" href="#"><div><div class="pn-label">다음</div><div class="pn-title">테스트 시 주의사항</div></div><i class="pn-arrow fas fa-arrow-right"></i></a>
+  </div>
+</article>
+
+<!-- ──────────────────── 주의사항 ──────────────────── -->
+<article class="g-page" id="p-notice">
+  <div class="breadcrumb"><a onclick="showPage('home');return false;" href="#">홈</a><span class="sep">/</span><span>부록</span><span class="sep">/</span><span>테스트 시 주의사항</span></div>
+  <div class="article-header">
+    <div class="article-cat">부록</div>
+    <h1 class="article-title">테스트 시 주의사항</h1>
+    <p class="article-desc">GoWIT IDP 시스템은 현재 내부 테스트 버전(v1.3)입니다. 테스트 전 아래 사항을 반드시 확인하세요.</p>
+  </div>
+  <div class="feat-grid">
+    <div class="feat-card"><div class="feat-icon fi-orange"><i class="fas fa-database"></i></div><div><div class="feat-name">localStorage 저장</div><div class="feat-desc">모든 데이터는 브라우저 localStorage에 저장됩니다. 브라우저·기기별 데이터가 분리됩니다.</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-red"><i class="fas fa-trash"></i></div><div><div class="feat-name">캐시 삭제 주의</div><div class="feat-desc">브라우저 캐시(사이트 데이터) 삭제 시 테스트 데이터가 모두 초기화됩니다.</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-green"><i class="fas fa-envelope"></i></div><div><div class="feat-name">이메일 인증 한도</div><div class="feat-desc">EmailJS 무료 한도는 월 200건입니다. 초과 시 인증 메일 발송이 불가합니다.</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-blue"><i class="fas fa-users"></i></div><div><div class="feat-name">다중 사용자 테스트</div><div class="feat-desc">동일 PC·브라우저에서 계정 전환 시 로그아웃 후 재로그인이 필요합니다.</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-purple"><i class="fas fa-bug"></i></div><div><div class="feat-name">버그 발견 시</div><div class="feat-desc">화면명, 재현 단계, 오류 메시지를 담당자(HR팀)에게 공유해 주세요.</div></div></div>
+    <div class="feat-card"><div class="feat-icon fi-gray"><i class="fas fa-lock"></i></div><div><div class="feat-name">외부 공유 금지</div><div class="feat-desc">이 시스템과 가이드는 내부 테스트 목적으로만 사용되며, 외부 공유가 금지됩니다.</div></div></div>
+  </div>
+  <div class="callout success">
+    <i class="fas fa-circle-check callout-icon"></i>
+    <div class="callout-body">
+      <strong>문의 및 피드백</strong>
+      테스트 완료 후 발견된 사항은 <strong>juyeon.kim@gowit.co.kr</strong>로 전달해 주시면 감사합니다.
+    </div>
+  </div>
+  <div class="page-nav">
+    <a class="pn-btn" onclick="showPage('p-perm');setSbActive('sb-perm');return false;" href="#"><i class="pn-arrow fas fa-arrow-left"></i><div><div class="pn-label">이전</div><div class="pn-title">역할별 권한 표</div></div></a>
+    <a class="pn-btn next" onclick="showPage('home');setSbActive('sb-home');return false;" href="#"><div><div class="pn-label">처음으로</div><div class="pn-title">가이드 홈</div></div><i class="pn-arrow fas fa-arrow-right"></i></a>
+  </div>
+</article>
+
+</div><!-- /g-content -->
+</main>
+
+<footer class="g-footer">
+  <span>GoWIT IDP 운영시스템 사용 가이드 · v1.3 Internal · 2026년 6월</span>
+  <span>HR팀 내부 배포용 · 외부 공유 금지</span>
+</footer>
+
+<!-- ══════ SCRIPTS ══════ -->
+<script>
+// ── 검색 인덱스 ──────────────────────────────────
+const SEARCH_INDEX = [
+  {id:'p-login',sb:'sb-login',title:'로그인하기',path:'시작하기',keywords:'로그인 이메일 비밀번호 접속 역할 세션'},
+  {id:'p-signup',sb:'sb-signup',title:'회원가입하기',path:'시작하기',keywords:'회원가입 이메일 인증 코드 비밀번호 가입 EmailJS'},
+  {id:'p-accounts',sb:'sb-accounts',title:'테스트 계정 안내',path:'시작하기',keywords:'계정 비밀번호 이메일 김팀원 이매니저 한파트 유팀장 admin'},
+  {id:'p-dashboard',sb:'sb-dashboard',title:'홈 대시보드',path:'사용자 화면',keywords:'대시보드 차트 IDP 현황 피드백 1on1 레이더'},
+  {id:'p-compdict',sb:'sb-compdict',title:'역량사전',path:'사용자 화면',keywords:'역량사전 역량 직무 리더십 레벨 행동지표 AI'},
+  {id:'p-compdiag',sb:'sb-compdiag',title:'역량수준 진단',path:'사용자 화면',keywords:'진단 역량수준 자가진단 레이더 차트'},
+  {id:'p-idpwrite',sb:'sb-idpwrite',title:'IDP 작성하기',path:'사용자 화면 › IDP 관리',keywords:'IDP 작성 목표 실행계획 합의라인 임시저장 제출'},
+  {id:'p-idpstatus',sb:'sb-idpstatus',title:'IDP 현황 확인',path:'사용자 화면 › IDP 관리',keywords:'IDP 현황 상태 임시저장 합의 승인 반려 재제출'},
+  {id:'p-idpagree',sb:'sb-idpagree',title:'IDP 합의',path:'사용자 화면 › IDP 관리',keywords:'IDP 합의 승인 반려 매니저 검토'},
+  {id:'p-feedback',sb:'sb-feedback',title:'실행 피드백',path:'사용자 화면 › 피드백&평가',keywords:'피드백 구성원 발송 수신 매니저'},
+  {id:'p-eval',sb:'sb-eval',title:'역량개발 평가',path:'사용자 화면 › 피드백&평가',keywords:'평가 자기평가 1차 2차 비중 점수'},
+  {id:'p-oo1',sb:'sb-oo1',title:'1on1 관리',path:'사용자 화면',keywords:'1on1 일정 미팅 기록 첨부'},
+  {id:'p-analysis',sb:'sb-analysis',title:'결과 분석',path:'사용자 화면',keywords:'결과 분석 차트 달성률 레이더 간트'},
+  {id:'p-settings',sb:'sb-settings',title:'설정',path:'사용자 화면',keywords:'설정 로그아웃 백업 다운로드'},
+  {id:'p-admdash',sb:'sb-admdash',title:'운영 현황 대시보드',path:'관리자 콘솔',keywords:'관리자 대시보드 통계 로그'},
+  {id:'p-adm-org',sb:'sb-adm-org',title:'조직 관리',path:'관리자 콘솔',keywords:'조직 사업부 팀 파트 관리'},
+  {id:'p-adm-band',sb:'sb-adm-band',title:'밴드·직책 관리',path:'관리자 콘솔',keywords:'밴드 직책 C1 C2 C3 C4'},
+  {id:'p-adm-user',sb:'sb-adm-user',title:'사용자 관리',path:'관리자 콘솔',keywords:'사용자 계정 추가 삭제 수정 신규 가입자'},
+  {id:'p-adm-idp',sb:'sb-adm-idp',title:'IDP 현황 관리',path:'관리자 콘솔',keywords:'IDP 현황 관리 전체'},
+  {id:'p-adm-comp',sb:'sb-adm-comp',title:'역량사전 관리',path:'관리자 콘솔',keywords:'역량사전 수정 편집 관리'},
+  {id:'p-adm-goal',sb:'sb-adm-goal',title:'역량 목표 관리',path:'관리자 콘솔',keywords:'목표 밴드 레벨 설정'},
+  {id:'p-adm-period',sb:'sb-adm-period',title:'IDP 실행 기간 설정',path:'관리자 콘솔',keywords:'기간 시작일 종료일 사이클'},
+  {id:'p-adm-eval',sb:'sb-adm-eval',title:'평가 관리',path:'관리자 콘솔',keywords:'평가 비중 점수 등급'},
+  {id:'p-adm-sys',sb:'sb-adm-sys',title:'시스템 관리',path:'관리자 콘솔',keywords:'초기화 데이터 삭제 통계'},
+  {id:'p-perm',sb:'sb-perm',title:'역할별 권한 표',path:'부록',keywords:'권한 역할 user manager admin 메뉴'},
+  {id:'p-notice',sb:'sb-notice',title:'테스트 시 주의사항',path:'부록',keywords:'주의 테스트 localStorage 캐시 버그'}
+];
+
+// ── 페이지 이동 ──────────────────────────────────
+function showPage(pageId) {
+  document.querySelectorAll('.g-page').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById(pageId);
+  if (el) { el.classList.add('active'); window.scrollTo(0,0); }
+  closeSearch();
+  // 모바일: 사이드바 + 오버레이 자동 닫기
+  closeSidebarOnMobile();
+}
+
+// ── 사이드바 활성화 ──────────────────────────────
+function setSbActive(sbId) {
+  document.querySelectorAll('.sb-item, .sb-single').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(sbId);
+  if (el) {
+    el.classList.add('active');
+    // 부모 그룹 열기
+    const grp = el.closest('.sb-group');
+    if (grp && !grp.classList.contains('open')) {
+      grp.classList.add('open');
+    }
+    // 사이드바 스크롤
+    setTimeout(() => {
+      el.scrollIntoView({block:'nearest', behavior:'smooth'});
+    }, 80);
+  }
+}
+
+// ── 그룹 토글 ────────────────────────────────────
+function toggleGroup(grpId) {
+  const grp = document.getElementById(grpId);
+  if (grp) grp.classList.toggle('open');
+}
+
+// ── 사이드바 토글 (모바일 드로어 + 데스크톱 collapse) ──
+function toggleSidebar() {
+  const sb  = document.getElementById('sidebar');
+  const ovl = document.getElementById('sbOverlay');
+  if (window.innerWidth <= 768) {
+    // 모바일: 드로어 방식 — 오버레이 배경 함께 제어
+    const isOpen = sb.classList.toggle('open');
+    ovl.classList.toggle('show', isOpen);
+    // 사이드바 열렸을 때 body 스크롤 잠금
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+  } else {
+    // 데스크톱: collapse 방식
+    sb.classList.toggle('collapsed');
+    const main   = document.querySelector('.g-main');
+    const footer = document.querySelector('.g-footer');
+    if (sb.classList.contains('collapsed')) {
+      main.style.marginLeft   = '0';
+      if(footer) footer.style.marginLeft = '0';
+    } else {
+      main.style.marginLeft   = 'var(--sidebar-w)';
+      if(footer) footer.style.marginLeft = 'var(--sidebar-w)';
+    }
+  }
+}
+
+function closeSidebar() {
+  const sb  = document.getElementById('sidebar');
+  const ovl = document.getElementById('sbOverlay');
+  sb.classList.remove('open');
+  ovl.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// 페이지 이동 후 모바일에서 사이드바 자동 닫기
+function closeSidebarOnMobile() {
+  if (window.innerWidth <= 768) closeSidebar();
+}
+
+// 창 크기 변경 시 모바일 상태 초기화
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) {
+    document.getElementById('sbOverlay').classList.remove('show');
+    document.body.style.overflow = '';
+  }
+});
+
+// ── 검색 ─────────────────────────────────────────
+function handleSearch(q) {
+  const res = document.getElementById('searchResults');
+  q = q.trim();
+  if (q.length < 1) { res.classList.remove('show'); return; }
+  const kw = q.toLowerCase();
+  const hits = SEARCH_INDEX.filter(item =>
+    item.title.toLowerCase().includes(kw) ||
+    item.keywords.toLowerCase().includes(kw) ||
+    item.path.toLowerCase().includes(kw)
+  ).slice(0, 8);
+  if (!hits.length) {
+    res.innerHTML = '<div class="sr-item"><span style="color:var(--gray-light);font-size:13px;">검색 결과가 없습니다.</span></div>';
+    res.classList.add('show'); return;
+  }
+  function hl(str) {
+    const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+    return str.replace(re, '<span class="sr-highlight">$1</span>');
+  }
+  res.innerHTML = hits.map(item => `
+    <div class="sr-item" onclick="showPage('${item.id}');setSbActive('${item.sb}');document.getElementById('globalSearch').value='';closeSearch();">
+      <i class="fas fa-file-lines sr-icon"></i>
+      <div>
+        <div class="sr-title">${hl(item.title)}</div>
+        <div class="sr-path">${item.path}</div>
+      </div>
+    </div>`).join('');
+  res.classList.add('show');
+}
+function closeSearch() {
+  document.getElementById('searchResults').classList.remove('show');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.g-search-wrap')) closeSearch();
+});
+document.getElementById('globalSearch').addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSearch();
+});
+
+// ── 소형 모바일 검색 토글 (480px 이하) ──────────
+function toggleMobileSearch() {
+  document.body.classList.toggle('g-search-visible');
+  if (document.body.classList.contains('g-search-visible')) {
+    setTimeout(() => document.getElementById('globalSearch').focus(), 80);
+  } else {
+    closeSearch();
+    document.getElementById('globalSearch').value = '';
+  }
+}
+
+// ── 터치 스와이프로 사이드바 닫기 ───────────────
+(function initSwipeClose() {
+  let touchStartX = 0;
+  const sb = document.getElementById('sidebar');
+  sb.addEventListener('touchstart', e => {
+    touchStartX = e.changedTouches[0].clientX;
+  }, { passive: true });
+  sb.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (dx < -50) closeSidebar(); // 왼쪽으로 50px+ 스와이프
+  }, { passive: true });
+  // 화면 오른쪽 가장자리에서 스와이프 우측 → 사이드바 오픈
+  document.addEventListener('touchstart', e => {
+    touchStartX = e.changedTouches[0].clientX;
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (touchStartX < 24 && dx > 50 && window.innerWidth <= 768) {
+      const s = document.getElementById('sidebar');
+      if (!s.classList.contains('open')) toggleSidebar();
+    }
+  }, { passive: true });
+})();
+
+// ── 테이블 모바일 스크롤 자동 래핑 ──────────────
+// .a-table, .perm-table을 .a-table-wrap으로 감싸서 가로 스크롤 보장
+(function wrapTables() {
+  document.querySelectorAll('.a-table, .perm-table').forEach(tbl => {
+    if (!tbl.closest('.a-table-wrap')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'a-table-wrap';
+      tbl.parentNode.insertBefore(wrap, tbl);
+      wrap.appendChild(tbl);
+    }
+  });
+})();
+
+// ── 역량 카드 렌더링 (2-2) ───────────────────────
+(function renderCompCards() {
+  const grid = document.getElementById('manualCompGrid');
+  if (!grid) return;
+  if (typeof COMPETENCIES === 'undefined' || !COMPETENCIES.length) {
+    grid.innerHTML = '<p style="color:#EF4444;padding:20px">⚠️ 역량 데이터를 불러올 수 없습니다.</p>';
+    return;
+  }
+  function card(c) {
+    const maxLv = c.levels ? c.levels.length : 3;
+    const dots = Array.from({length:maxLv},(_,i)=>
+      `<div class="mc-dot${i<Math.ceil(maxLv/2)?' filled':''}"></div>`).join('');
+    const areaTag = c.leaderArea
+      ? `<span class="mc-area-tag ${c.leaderArea}">${c.leaderAreaLabel}</span>` : '';
+    const catCls = c.category==='job' ? 'mc-cat-job' : 'mc-cat-leadership';
+    return `<div class="mc-card">
+      <div class="mc-card-top">
+        <span class="mc-cat-badge ${catCls}">${c.categoryLabel}</span>${areaTag}
+      </div>
+      <div class="mc-card-title">${c.icon} ${c.name}</div>
+      <div class="mc-card-def">${c.definition}</div>
+      <div class="mc-levels">${dots}</div>
+      <div class="mc-card-footer">
+        <span><i class="fas fa-list-ul"></i> 행동지표 ${(c.behaviors||[]).length}개</span>
+        <span><i class="fas fa-stairs"></i> ${maxLv}단계</span>
+      </div>
+    </div>`;
+  }
+  function bandGroups(list) {
+    const order=['C4','C3','C2','C1'];
+    const colors={C4:'#6366f1',C3:'#0ea5e9',C2:'#10b981',C1:'#f59e0b'};
+    const bgs={C4:'#EEF2FF',C3:'#F0F9FF',C2:'#F0FFF4',C1:'#FFFBEB'};
+    const titles={C4:'C4 · 본부장·사업부장',C3:'C3 · 팀장·파트장',C2:'C2 · 매니저·선임',C1:'C1 · 팀원·사원'};
+    const descs={C4:'비전과 전략 수립, 조직 변화 주도',C3:'팀 성과 관리, 의사결정과 책임',C2:'전문성 발휘, 과제 주도, 후배 육성',C1:'성과 지향, 자기 개발, 협력과 소통'};
+    return order.map(band => {
+      const items = list.filter(c=>c.leaderBand===band);
+      if (!items.length) return '';
+      const biz = items.filter(c=>c.leaderArea==='business');
+      const ppl = items.filter(c=>c.leaderArea==='people');
+      let areas='';
+      if(biz.length) areas+=`<div class="mc-area-label biz"><i class="fas fa-chart-line"></i> 비즈니스 영역</div><div class="mc-cards-row">${biz.map(card).join('')}</div>`;
+      if(ppl.length) areas+=`<div class="mc-area-label ppl" style="margin-top:10px"><i class="fas fa-users"></i> 피플 영역</div><div class="mc-cards-row">${ppl.map(card).join('')}</div>`;
+      return `<div class="mc-band-group" style="border-left:4px solid ${colors[band]};background:${bgs[band]}">
+        <div class="mc-band-header">
+          <span class="mc-band-badge" style="background:${colors[band]}">${band}</span>
+          <div><div class="mc-band-label">${titles[band]}</div><div class="mc-band-desc">${descs[band]}</div></div>
+        </div>
+        <div class="mc-band-areas">${areas}</div>
+      </div>`;
+    }).join('');
+  }
+  const jobs = COMPETENCIES.filter(c=>c.category==='job');
+  const leads = COMPETENCIES.filter(c=>c.category==='leadership');
+  let html = '';
+  if(jobs.length) {
+    html += `<div class="mc-section-header"><i class="fas fa-briefcase" style="color:#F59E0B"></i> 직무역량 <span class="mc-section-count">${jobs.length}개 · 전 밴드 공통</span></div>`;
+    html += `<div class="mc-grid-inner">${jobs.map(card).join('')}</div>`;
+  }
+  if(leads.length) {
+    html += `<div class="mc-section-header" style="margin-top:28px"><i class="fas fa-crown" style="color:#22C55E"></i> 리더십역량 <span class="mc-section-count">밴드별 구분 · C4→C3→C2→C1</span></div>`;
+    html += bandGroups(leads);
+  }
+  grid.innerHTML = html;
+})();
+
+// ── 초기 실행 ────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // URL hash 처리
+  const hash = window.location.hash.replace('#','');
+  if (hash) {
+    const idx = SEARCH_INDEX.find(i=>i.id===hash);
+    if(idx) { showPage(idx.id); setSbActive(idx.sb); }
+  }
+});
+</script>
+</body>
+</html>
