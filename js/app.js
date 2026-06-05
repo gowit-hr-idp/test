@@ -115,6 +115,14 @@ function _initAppAfterLoad() {
   initGlobalSearch();
   _applyAdminCycleName();
 
+  // ★ 앱 초기화 완료 후 approvalLine 일괄 복구 (기존 IDP 대응)
+  setTimeout(function() {
+    if (typeof repairAllApprovalLines === 'function') {
+      const count = repairAllApprovalLines();
+      if (count > 0) console.log('[Init] approvalLine 자동복구 완료:', count, '건');
+    }
+  }, 500);
+
   // ⑨ 100ms 후 사이드바 재확인 (혹시 덮어쓰이는 경우 대비)
   setTimeout(function() { _updateSidebar(CURRENT_USER); }, 100);
   setTimeout(function() { _updateSidebar(CURRENT_USER); }, 600);
@@ -2116,6 +2124,13 @@ async function submitIDP() {
     actions:        newIDP.actions.filter(a => a.title)
   };
 
+  // ★ 합의라인 생성 결과 검증 로그
+  console.log('[IDP 제출] 합의라인 생성:', newEntry.approvalLine.length + '단계',
+    newEntry.approvalLine.map(s => `${s.name}(${s.userId})`).join(' → '));
+  if (newEntry.approvalLine.length === 0) {
+    console.warn('[IDP 제출] ⚠️ 합의라인이 비어있음! 제출자:', user.id, user.band, user.position, '/ approvers:', user.approvers);
+  }
+
   IDP_LIST.push(newEntry);
   // ── 알림 먼저 NOTIFICATION_LIST에 추가 ──
   _notifyApprovalLine(newEntry);
@@ -3288,9 +3303,12 @@ function getApprovalLine(user) {
   if (user.approvers && Array.isArray(user.approvers) && user.approvers.length > 0) {
     const posIcons = { '파트장':'👤', '팀장':'🏢', '사업부장':'🏛️', '본부장':'🏛️', '매니저':'👤' };
     const lastIdx = user.approvers.length - 1;
-    return user.approvers.map((uid, idx) => {
+    const line = user.approvers.map((uid, idx) => {
       const approver = (typeof USERS_DB !== 'undefined' ? USERS_DB : []).find(u => u.id === uid);
-      if (!approver) return null;
+      if (!approver) {
+        console.warn('[getApprovalLine] approvers에 없는 userId:', uid, '→ USERS_DB에 없음, 건너뜀');
+        return null;
+      }
       const isLast = idx === lastIdx;
       const icon   = posIcons[approver.position] || '👤';
       return {
@@ -3300,9 +3318,14 @@ function getApprovalLine(user) {
         userId: approver.id,
         icon,
         status: 'waiting',
-        date:   null
+        date:   null,
+        comment: ''
       };
     }).filter(Boolean);
+
+    // approvers 기반으로 결과가 나왔으면 반환, 비었으면 org 기반으로 fallback
+    if (line.length > 0) return line;
+    console.warn('[getApprovalLine] approvers 기반 합의라인 구성 실패 → org 기반으로 fallback:', user.id);
   }
 
   // ── ORG_DB + USERS_DB 기반 자동 탐색 ──
@@ -3955,11 +3978,47 @@ function showToast(msg, duration) {
  * - approvalLine 배열 중 userId === CURRENT_USER.id인 step이 있고
  *   해당 step의 status가 'waiting'이며, 앞 step이 모두 approved인 경우
  */
+// ── approvalLine 자동 복구: 저장된 IDP에 approvalLine이 없을 때 재생성 ──
+function _repairApprovalLine(idp) {
+  if (idp.approvalLine && idp.approvalLine.length > 0) return; // 이미 있으면 패스
+  const submitter = (typeof USERS_DB !== 'undefined' ? USERS_DB : []).find(u => u.id === idp.userId);
+  if (!submitter) return;
+  const line = typeof getApprovalLineEnhanced === 'function'
+    ? getApprovalLineEnhanced(submitter)
+    : (typeof getApprovalLine === 'function' ? getApprovalLine(submitter) : []);
+  if (line.length > 0) {
+    idp.approvalLine = line.map(s => ({ ...s, status: 'waiting', date: null, comment: '' }));
+    console.log('[ApprovalRepair] approvalLine 자동 복구:', idp.id, '→', idp.approvalLine.map(s=>s.name).join(' → '));
+  }
+}
+
+// ── 제출된 모든 IDP의 approvalLine 일괄 복구 ──
+function repairAllApprovalLines() {
+  let repaired = 0;
+  (typeof IDP_LIST !== 'undefined' ? IDP_LIST : []).forEach(idp => {
+    if (idp.status === 'pending-approval' || idp.status === 'mid-approved') {
+      const before = (idp.approvalLine || []).length;
+      _repairApprovalLine(idp);
+      if ((idp.approvalLine || []).length > before) repaired++;
+    }
+  });
+  if (repaired > 0) {
+    console.log('[ApprovalRepair] 총', repaired, '건 approvalLine 복구 완료 → Firebase 저장');
+    if (typeof saveAllDataAsync === 'function') saveAllDataAsync();
+    else if (typeof saveAllData === 'function') saveAllData();
+  }
+  return repaired;
+}
+
 function getMyApprovalIDPs() {
   if (!CURRENT_USER) return [];
   const uid = CURRENT_USER.id;
+  // approvalLine 복구 먼저 실행
+  repairAllApprovalLines();
   return IDP_LIST.filter(idp => {
     if (!idp.approvalLine || idp.approvalLine.length === 0) return false;
+    // pending-approval 또는 mid-approved 상태만 합의 대기로 간주
+    if (idp.status !== 'pending-approval' && idp.status !== 'mid-approved') return false;
     const idx = idp.approvalLine.findIndex(s => s.userId === uid);
     if (idx === -1) return false;
     // 앞 단계가 모두 approved여야 내 차례
@@ -3986,6 +4045,16 @@ let _reviewingIdpId = null;
 function renderApprovalPage() {
   const user = CURRENT_USER;
   if (!user) return;
+
+  // ★ approvalLine 없는 IDP 먼저 자동 복구
+  repairAllApprovalLines();
+
+  // 진단 로그
+  console.log(`[Approval] 페이지 렌더링 - 사용자: ${user.name}(${user.id}) / 전체 IDP: ${IDP_LIST.length}건`);
+  const pendingAll = IDP_LIST.filter(i => i.status === 'pending-approval' || i.status === 'mid-approved');
+  console.log(`[Approval] 합의대기 IDP: ${pendingAll.length}건`, pendingAll.map(i => ({
+    id: i.id, user: i.userName, line: (i.approvalLine||[]).map(s => s.name + '(' + s.status + ')')
+  })));
 
   // 설명 업데이트
   const descEl = document.getElementById('approvalPageDesc');
@@ -4029,10 +4098,18 @@ function renderApprovalList(statusFilter) {
   if (!wrap) return;
 
   const uid = CURRENT_USER ? CURRENT_USER.id : null;
+  if (!uid) { wrap.innerHTML = '<div class="apv-empty"><p>로그인 정보를 확인할 수 없습니다.</p></div>'; return; }
+
+  // approvalLine 없는 IDP 자동 복구 후 목록 조회
+  repairAllApprovalLines();
+
+  // 내가 합의자로 포함된 IDP 전체
   let list = IDP_LIST.filter(idp => {
     if (!idp.approvalLine || idp.approvalLine.length === 0) return false;
     return idp.approvalLine.some(s => s.userId === uid);
   });
+
+  console.log(`[Approval] 전체 IDP: ${IDP_LIST.length}건 / 내 합의 관련: ${list.length}건 (uid: ${uid})`);
 
   if (statusFilter === 'waiting') {
     list = list.filter(idp => {
