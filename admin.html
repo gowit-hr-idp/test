@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IDP 시스템 | 관리자 콘솔</title>
+  <!-- ① 즉시 인증 체크: 세션 없거나 admin 아니면 CDN 로딩 전에 즉시 리디렉션 -->
+  <script>
+    (function() {
+      try {
+        var sess = sessionStorage.getItem('idp_user');
+        if (!sess) { window.location.replace('login.html'); throw 'redirect'; }
+        var u = JSON.parse(sess);
+        if (!u || !u.id) { sessionStorage.removeItem('idp_user'); window.location.replace('login.html'); throw 'redirect'; }
+        if (u.role !== 'admin') { window.location.replace('index.html'); throw 'redirect'; }
+      } catch(e) {
+        if (e === 'redirect') { document.documentElement.style.display = 'none'; }
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/admin.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+  <style>
+    /* 인증 확인 전 화면 깜빡임 방지 */
+    body { visibility: hidden; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="adm-sidebar" id="admSidebar">
+  <div class="adm-sidebar-header">
+    <div class="adm-logo">
+      <span class="adm-logo-icon"><i class="fas fa-shield-halved"></i></span>
+      <span class="adm-logo-text">관리자 콘솔</span>
+    </div>
+  </div>
+  <div class="adm-user-info">
+    <div class="adm-user-avatar"><i class="fas fa-user-shield"></i></div>
+    <div>
+      <span class="adm-user-name" id="admUserName">관리자</span>
+      <span class="adm-user-role">HR Manager</span>
+    </div>
+  </div>
+  <nav class="adm-nav">
+    <ul>
+      <li class="adm-nav-item active" data-page="adm-dashboard"><a href="#"><i class="fas fa-chart-pie"></i><span>운영 현황</span></a></li>
+      <li class="adm-nav-item" data-page="adm-org"><a href="#"><i class="fas fa-sitemap"></i><span>조직 관리</span></a></li>
+      <li class="adm-nav-item adm-nav-sub" data-page="adm-band"><a href="#"><i class="fas fa-layer-group"></i><span>밴드 · 직책 관리</span></a></li>
+      <li class="adm-nav-item" data-page="adm-users"><a href="#"><i class="fas fa-users"></i><span>사용자 관리</span></a></li>
+      <li class="adm-nav-item" data-page="adm-idp"><a href="#"><i class="fas fa-list-check"></i><span>IDP 현황 관리</span></a></li>
+      <li class="adm-nav-item" data-page="adm-competency"><a href="#"><i class="fas fa-book-open"></i><span>역량사전 관리</span></a></li>
+      <li class="adm-nav-item" data-page="adm-comp-targets"><a href="#"><i class="fas fa-bullseye"></i><span>역량 목표 관리</span></a></li>
+      <li class="adm-nav-item" data-page="adm-cycle"><a href="#"><i class="fas fa-calendar-check"></i><span>IDP 실행 기간 설정</span></a></li>
+      <li class="adm-nav-item" data-page="adm-eval"><a href="#"><i class="fas fa-star"></i><span>평가 관리</span></a></li>
+      <li class="adm-nav-item adm-nav-sub" data-page="adm-eval-weights"><a href="#"><i class="fas fa-balance-scale"></i><span>평가 비중 설정</span></a></li>
+      <li class="adm-nav-item adm-nav-sub" data-page="adm-eval-scoring"><a href="#"><i class="fas fa-sliders-h"></i><span>점수 산정 방식</span></a></li>
+      <li class="adm-nav-item" data-page="adm-system"><a href="#"><i class="fas fa-database"></i><span>시스템 관리</span></a></li>
+    </ul>
+  </nav>
+  <div class="adm-sidebar-footer">
+    <button class="adm-logout-btn" onclick="admLogout()"><i class="fas fa-right-from-bracket"></i> 로그아웃</button>
+    <a href="index.html" class="adm-goto-btn"><i class="fas fa-external-link"></i> 직원 시스템</a>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="adm-main" id="admMain">
+  <header class="adm-topbar">
+    <div class="adm-topbar-left">
+      <div class="adm-breadcrumb" id="admBreadcrumb">운영 현황</div>
+    </div>
+    <div class="adm-topbar-right">
+      <span class="adm-cycle-badge" id="topCycleBadge"><i class="fas fa-calendar-check"></i> <span id="topCycleName">IDP 시스템</span></span>
+    </div>
+  </header>
+
+  <!-- 페이지 래퍼 (스크롤 컨테이너) -->
+  <div class="adm-pages-wrap">
+
+  <!-- ① 운영 현황 -->
+  <section class="adm-page active" id="page-adm-dashboard">
+    <div class="adm-page-header">
+      <div>
+        <h1>운영 현황 대시보드</h1>
+        <p>전체 IDP 운영 현황과 역량 개발 진행 상태를 실시간으로 확인하세요.</p>
+      </div>
+      <div id="dashCycleBadge" style="display:none;background:linear-gradient(135deg,#EEF2FF,#F5F3FF);border:1.5px solid #6366f1;border-radius:10px;padding:8px 16px;font-size:12.5px;color:#4F46E5;font-weight:700;white-space:nowrap">
+        <i class="fas fa-calendar-check" style="margin-right:6px"></i><span id="dashCycleName">-</span>
+        <span id="dashCyclePeriod" style="font-weight:400;margin-left:8px;color:#6366f1"></span>
+      </div>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="adm-stat-cards" id="admStatCards">
+      <div class="adm-stat-card blue"><div class="adm-stat-icon"><i class="fas fa-users"></i></div><div class="adm-stat-body"><div class="adm-stat-val" id="stat-users">-</div><div class="adm-stat-lbl">전체 직원</div></div></div>
+      <div class="adm-stat-card green"><div class="adm-stat-icon"><i class="fas fa-list-check"></i></div><div class="adm-stat-body"><div class="adm-stat-val" id="stat-idp">-</div><div class="adm-stat-lbl">전체 IDP</div></div></div>
+      <div class="adm-stat-card orange"><div class="adm-stat-icon"><i class="fas fa-hourglass-half"></i></div><div class="adm-stat-body"><div class="adm-stat-val" id="stat-pending">-</div><div class="adm-stat-lbl">합의 대기</div></div></div>
+      <div class="adm-stat-card purple"><div class="adm-stat-icon"><i class="fas fa-circle-check"></i></div><div class="adm-stat-body"><div class="adm-stat-val" id="stat-approved">-</div><div class="adm-stat-lbl">최종 승인</div></div></div>
+    </div>
+
+    <!-- 직원별 IDP 현황 테이블 -->
+    <div class="adm-card" style="margin-bottom:16px">
+      <div class="adm-card-header">
+        <h3><i class="fas fa-users"></i> 직원별 IDP 현황</h3>
+        <button class="adm-btn-outline" style="padding:5px 12px;font-size:11.5px" onclick="renderDashboardEmployeeTable()">
+          <i class="fas fa-sync"></i> 새로고침
+        </button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="adm-table" style="min-width:720px">
+          <thead>
+            <tr>
+              <th>직원명</th>
+              <th>조직</th>
+              <th>직책 / 밴드</th>
+              <th>IDP 수</th>
+              <th>최근 IDP 역량</th>
+              <th>상태</th>
+              <th>평균 진행률</th>
+            </tr>
+          </thead>
+          <tbody id="dashEmpTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 차트 2열 -->
+    <div class="adm-grid-2">
+      <div class="adm-card">
+        <div class="adm-card-header"><h3><i class="fas fa-chart-bar"></i> 부서별 IDP 현황</h3></div>
+        <div style="height:220px;position:relative"><canvas id="deptChart"></canvas></div>
+      </div>
+      <div class="adm-card">
+        <div class="adm-card-header"><h3><i class="fas fa-spider"></i> 전사 역량 분포</h3></div>
+        <div style="height:220px;position:relative"><canvas id="overallRadar"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 최근 활동 로그 -->
+    <div class="adm-card" style="margin-top:16px">
+      <div class="adm-card-header"><h3><i class="fas fa-clock"></i> 최근 활동 로그</h3></div>
+      <div class="adm-activity-log" id="admActivityLog"></div>
+    </div>
+  </section>
+
+  <!-- ①-2 밴드 · 직책 관리 -->
+  <section class="adm-page" id="page-adm-band">
+    <div class="adm-page-header">
+      <div>
+        <h1>밴드 · 직책 관리</h1>
+        <p>조직의 밴드(C1~C4) 체계와 각 밴드별 직책을 등록·수정합니다. 직원 추가 시 직책 선택에 반영됩니다.</p>
+      </div>
+    </div>
+
+    <div class="adm-grid-2" style="gap:20px;align-items:start">
+
+      <!-- 밴드 관리 -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h3><i class="fas fa-layer-group" style="color:#6366f1"></i> 밴드 관리</h3>
+          <button class="adm-btn-primary" onclick="openBandModal()" style="font-size:11px;padding:5px 12px">
+            <i class="fas fa-plus"></i> 밴드 추가
+          </button>
+        </div>
+        <p style="font-size:12px;color:#6B7280;margin-bottom:14px">밴드명·레이블·설명을 관리합니다. 순서를 변경하면 드롭다운에도 반영됩니다.</p>
+        <div id="bandList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+
+      <!-- 직책 관리 -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h3><i class="fas fa-user-tag" style="color:#10B981"></i> 직책 관리</h3>
+          <button class="adm-btn-primary" onclick="openPositionModal()" style="font-size:11px;padding:5px 12px">
+            <i class="fas fa-plus"></i> 직책 추가
+          </button>
+        </div>
+        <p style="font-size:12px;color:#6B7280;margin-bottom:14px">밴드별 직책을 관리합니다. 직원 추가·수정 시 밴드 선택에 따라 해당 직책 목록이 표시됩니다.</p>
+        <!-- 밴드별 탭 -->
+        <div id="bandFilterTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <div id="positionList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 밴드 추가/편집 모달 -->
+  <div class="adm-modal-overlay" id="bandModal">
+    <div class="adm-modal" style="width:420px">
+      <div class="adm-modal-header">
+        <h2 id="bandModalTitle">밴드 추가</h2>
+        <button class="adm-modal-close" onclick="closeAdmModal('bandModal')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="adm-modal-body">
+        <input type="hidden" id="bandModalId">
+        <div class="adm-form-row">
+          <div class="adm-form-group">
+            <label>밴드명 <span class="req">*</span> <span style="font-size:10px;color:#9CA3AF">(예: C1)</span></label>
+            <input type="text" class="adm-input" id="bandModalName" placeholder="예: C1, C2, C3, C4">
+          </div>
+          <div class="adm-form-group">
+            <label>레이블 <span class="req">*</span> <span style="font-size:10px;color:#9CA3AF">(예: 팀원·사원)</span></label>
+            <input type="text" class="adm-input" id="bandModalLabel" placeholder="예: 팀원·사원">
+          </div>
+        </div>
+        <div class="adm-form-group">
+          <label>색상 <span style="font-size:10px;color:#9CA3AF">(선택)</span></label>
+          <!-- MS 스타일 색상 팔레트 -->
+          <div id="bandColorPicker" style="border:1px solid #E5E7EB;border-radius:8px;padding:10px;background:#FAFAFA">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px" id="bandColorSwatches"></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div id="bandColorPreview" style="width:28px;height:28px;border-radius:6px;border:2px solid #E5E7EB;background:#6366f1;flex-shrink:0"></div>
+              <input type="text" id="bandColorHex" class="adm-input" style="flex:1;font-family:monospace;font-size:12px" placeholder="#6366f1" maxlength="7">
+              <input type="hidden" id="bandModalColor" value="#6366f1">
+            </div>
+          </div>
+        </div>
+        <div class="adm-form-group">
+          <label>설명 <span style="font-size:10px;color:#9CA3AF">(선택)</span></label>
+          <input type="text" class="adm-input" id="bandModalDesc" placeholder="밴드 설명 (예: 일반 직원 - IDP 작성자)">
+        </div>
+      </div>
+      <div class="adm-modal-footer">
+        <button class="adm-btn-primary" onclick="saveBand()"><i class="fas fa-save"></i> 저장</button>
+        <button class="adm-btn-outline" onclick="closeAdmModal('bandModal')">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 직책 추가/편집 모달 -->
+  <div class="adm-modal-overlay" id="positionModal">
+    <div class="adm-modal" style="width:420px">
+      <div class="adm-modal-header">
+        <h2 id="positionModalTitle">직책 추가</h2>
+        <button class="adm-modal-close" onclick="closeAdmModal('positionModal')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="adm-modal-body">
+        <input type="hidden" id="positionModalId">
+        <div class="adm-form-group">
+          <label>직책명 <span class="req">*</span></label>
+          <input type="text" class="adm-input" id="positionModalName" placeholder="예: 팀원, 파트장, 팀장">
+        </div>
+        <div class="adm-form-group">
+          <label>소속 밴드 <span class="req">*</span></label>
+          <select class="adm-input" id="positionModalBand"></select>
+        </div>
+        <div class="adm-form-group">
+          <label>설명 <span style="font-size:10px;color:#9CA3AF">(선택)</span></label>
+          <input type="text" class="adm-input" id="positionModalDesc" placeholder="직책 설명">
+        </div>
+      </div>
+      <div class="adm-modal-footer">
+        <button class="adm-btn-primary" onclick="savePosition()"><i class="fas fa-save"></i> 저장</button>
+        <button class="adm-btn-outline" onclick="closeAdmModal('positionModal')">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 사용자 관리 -->
+  <section class="adm-page" id="page-adm-users">
+    <div class="adm-page-header">
+      <div>
+        <h1>사용자 관리</h1>
+        <p>시스템에 등록된 전체 직원 계정을 관리합니다.</p>
+      </div>
+      <button class="adm-btn-primary" onclick="openAddUserModal()"><i class="fas fa-user-plus"></i> 직원 추가</button>
+    </div>
+    <div class="adm-toolbar">
+      <div class="adm-search"><i class="fas fa-search"></i><input type="text" placeholder="이름, 이메일, 부서 검색..." oninput="filterUsers(this.value)" /></div>
+      <div class="adm-filters">
+        <select class="adm-select" onchange="filterUsersByBand(this.value)">
+          <option value="all">전체 밴드</option>
+          <option value="C4">C4</option>
+          <option value="C3">C3</option>
+          <option value="C2">C2</option>
+          <option value="C1">C1</option>
+        </select>
+        <select class="adm-select" onchange="sortUsers(this.value)">
+          <option value="default">기본 순서</option>
+          <option value="name-asc">이름 오름차순</option>
+          <option value="name-desc">이름 내림차순</option>
+          <option value="band-asc">밴드 C1→C4</option>
+          <option value="band-desc">밴드 C4→C1</option>
+          <option value="join-asc">가입일 오래된순</option>
+          <option value="join-desc">가입일 최근순</option>
+          <option value="dept-asc">조직명 오름차순</option>
+        </select>
+      </div>
+    </div>
+    <div class="adm-table-wrap">
+      <table class="adm-table">
+        <thead>
+          <tr>
+            <th>이름 / 이메일</th>
+            <th>조직 (본부 › 팀 › 파트)</th>
+            <th>직책</th>
+            <th>밴드</th>
+            <th>가입일</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="userTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ③ IDP 현황 관리 -->
+  <section class="adm-page" id="page-adm-idp">
+    <div class="adm-page-header">
+      <div>
+        <h1>IDP 현황 관리</h1>
+        <p>전체 직원의 IDP 현황을 조회하고 합의·승인을 처리합니다.</p>
+      </div>
+    </div>
+
+    <!-- 상태별 요약 카드 -->
+    <div id="idpSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px"></div>
+
+    <!-- 필터 탭 -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="adm-idp-filter-btn active" onclick="filterAdmIdp('all')" style="padding:7px 16px;border-radius:99px;border:1.5px solid var(--border);background:var(--primary);color:white;font-size:12.5px;font-weight:700;cursor:pointer">전체</button>
+      <button class="adm-idp-filter-btn" onclick="filterAdmIdp('pending-approval')" style="padding:7px 16px;border-radius:99px;border:1.5px solid #F59E0B;background:white;color:#F59E0B;font-size:12.5px;font-weight:700;cursor:pointer">합의 대기</button>
+      <button class="adm-idp-filter-btn" onclick="filterAdmIdp('mid-approved')" style="padding:7px 16px;border-radius:99px;border:1.5px solid #6366F1;background:white;color:#6366F1;font-size:12.5px;font-weight:700;cursor:pointer">중간합의 완료</button>
+      <button class="adm-idp-filter-btn" onclick="filterAdmIdp('approved')" style="padding:7px 16px;border-radius:99px;border:1.5px solid #10B981;background:white;color:#10B981;font-size:12.5px;font-weight:700;cursor:pointer">최종 승인</button>
+      <button class="adm-idp-filter-btn" onclick="filterAdmIdp('in-progress')" style="padding:7px 16px;border-radius:99px;border:1.5px solid #3B82F6;background:white;color:#3B82F6;font-size:12.5px;font-weight:700;cursor:pointer">진행중</button>
+      <button class="adm-idp-filter-btn" onclick="filterAdmIdp('rejected')" style="padding:7px 16px;border-radius:99px;border:1.5px solid #EF4444;background:white;color:#EF4444;font-size:12.5px;font-weight:700;cursor:pointer">반려</button>
+    </div>
+
+    <div class="adm-table-wrap" style="overflow-x:auto">
+      <table class="adm-table" style="min-width:900px">
+        <thead>
+          <tr>
+            <th>직원명</th><th>조직</th><th>역량명</th>
+            <th>수준 (현재→목표)</th><th>진행률</th><th>상태</th>
+            <th>합의 라인</th><th>기간</th><th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="admIdpTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ④ 역량사전 관리 -->
+  <section class="adm-page" id="page-adm-competency">
+    <div class="adm-page-header">
+      <div>
+        <h1>역량사전 관리</h1>
+        <p>직무역량·리더십역량 정의와 수준 기준을 확인합니다.</p>
+      </div>
+    </div>
+    <div class="adm-toolbar">
+      <div class="adm-filters">
+        <button class="adm-filter-tab active" data-cat="all" onclick="filterAdmComp('all', this)">전체</button>
+        <button class="adm-filter-tab" data-cat="job" onclick="filterAdmComp('job', this)">직무역량</button>
+        <button class="adm-filter-tab" data-cat="leadership" onclick="filterAdmComp('leadership', this)">리더십역량</button>
+      </div>
+    </div>
+    <div class="adm-comp-list" id="admCompList"></div>
+  </section>
+
+  <!-- ④-B 역량 목표 관리 -->
+  <section class="adm-page" id="page-adm-comp-targets">
+    <div class="adm-page-header">
+      <div>
+        <h1><i class="fas fa-bullseye" style="color:#6366f1;margin-right:8px"></i>역량 목표 관리</h1>
+        <p>조직(팀·파트)별 역량 목표 수준을 설정합니다. 소속 직원의 차트에 자동 반영됩니다.</p>
+      </div>
+    </div>
+
+    <!-- 조직 선택 영역 (조직관리 DB 연동) -->
+    <div class="adm-card" style="margin-bottom:16px;padding:16px 20px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;font-weight:600;color:#374151;white-space:nowrap">조직 단위</span>
+          <select id="ctOrgTypeSelect" class="adm-input" style="min-width:120px" onchange="onCtOrgTypeChange()">
+            <option value="bizUnit">사업부 단위</option>
+            <option value="dept">팀 단위</option>
+            <option value="part">파트 단위</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px">
+          <span style="font-size:13px;font-weight:600;color:#374151;white-space:nowrap">조직 선택</span>
+          <select id="ctOrgSelect" class="adm-input" style="flex:1" onchange="loadCtForm()">
+            <option value="">조직 선택...</option>
+          </select>
+        </div>
+        <button class="adm-btn-primary" onclick="saveCtTargets()"><i class="fas fa-save"></i> 저장 · 전 직원 자동 적용</button>
+      </div>
+      <div id="ctOrgInfo" style="margin-top:10px;font-size:12px;color:#6B7280;display:none">
+        <i class="fas fa-info-circle" style="color:#6366f1;margin-right:4px"></i>
+        <span id="ctOrgInfoText"></span>
+      </div>
+    </div>
+
+    <!-- 저장된 목표 현황 요약 -->
+    <div id="ctSavedSummary" style="margin-bottom:20px"></div>
+
+    <!-- 역량별 목표 입력 폼 -->
+    <div class="card" id="ctFormCard" style="display:none">
+      <div style="padding:20px 24px 8px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <i class="fas fa-bullseye" style="color:white;font-size:16px"></i>
+          </div>
+          <div>
+            <div id="ctFormTitle" style="font-size:16px;font-weight:700;color:var(--adm-text)">목표 설정</div>
+            <div id="ctFormDesc" style="font-size:12px;color:var(--adm-text-light)">역량별 목표 수준을 1~5로 설정하세요</div>
+          </div>
+          <div id="ctLastUpdated" style="margin-left:auto;font-size:11px;color:var(--adm-text-light)"></div>
+        </div>
+        <div id="ctCompRows" style="display:grid;gap:0;border:1px solid var(--adm-border);border-radius:10px;overflow:hidden"></div>
+      </div>
+      <!-- 레이더 미리보기 -->
+      <div style="padding:16px 24px 20px">
+        <div style="font-size:12px;font-weight:600;color:var(--adm-text-secondary);margin-bottom:10px"><i class="fas fa-spider" style="margin-right:5px;color:#6366f1"></i>목표 분포 미리보기</div>
+        <div style="height:260px;max-width:340px;margin:0 auto"><canvas id="ctPreviewRadar"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 전체 저장 현황 테이블 -->
+    <div class="card" style="margin-top:20px">
+      <div style="padding:16px 20px 8px;font-size:14px;font-weight:700;color:var(--adm-text);border-bottom:1px solid var(--adm-border)">
+        <i class="fas fa-list-check" style="color:#6366f1;margin-right:6px"></i>저장된 역량 목표 현황
+      </div>
+      <div id="ctAllTargetsTable" style="padding:0 8px 16px"></div>
+    </div>
+  </section>
+
+  <!-- ⑤ IDP 실행 기간 설정 -->
+  <section class="adm-page" id="page-adm-cycle">
+    <div class="adm-page-header">
+      <div>
+        <h1><i class="fas fa-calendar-check" style="color:#6366f1;margin-right:8px"></i>IDP 실행 기간 설정</h1>
+        <p>전 직원의 IDP 작성 실행 기간을 설정합니다. 저장 즉시 모든 직원에게 자동 적용됩니다.</p>
+      </div>
+    </div>
+
+    <!-- 현재 적용 중 배너 -->
+    <div id="currentPeriodBanner" style="display:none;background:linear-gradient(135deg,#EEF2FF,#F5F3FF);border:2px solid #6366f1;border-radius:14px;padding:18px 24px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;background:#6366f1;border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;flex-shrink:0"><i class="fas fa-calendar-check"></i></div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">현재 적용 중인 IDP 실행 기간</div>
+          <div style="font-size:16px;font-weight:800;color:#1A1D2E" id="bannerPeriodText">-</div>
+          <div style="font-size:12px;color:#6B7280;margin-top:2px" id="bannerCycleName">-</div>
+        </div>
+        <div style="margin-left:auto;background:white;border:1.5px solid #6366f1;color:#6366f1;padding:5px 14px;border-radius:99px;font-size:11.5px;font-weight:700">전 직원 자동 적용 중</div>
+      </div>
+    </div>
+
+    <div class="adm-card" style="border:2px solid #6366f1;max-width:680px">
+      <div class="adm-card-header" style="background:linear-gradient(135deg,#EEF2FF,#F5F3FF);margin:-20px -20px 20px;padding:16px 20px;border-radius:12px 12px 0 0">
+        <h3 style="color:#4F46E5"><i class="fas fa-calendar-check"></i> IDP 실행 기간 설정</h3>
+        <span style="font-size:11px;color:#6366f1;font-weight:600;background:white;padding:3px 10px;border-radius:99px;border:1px solid #6366f1">HR 전용</span>
+      </div>
+
+      <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:12.5px;color:#92400E;display:flex;align-items:flex-start;gap:10px">
+        <i class="fas fa-shield-halved" style="margin-top:1px;font-size:15px"></i>
+        <div>
+          <strong>HR 관리자 전용 설정</strong><br>
+          저장 후 직원은 이 기간을 <strong>수정할 수 없습니다.</strong> HR 관리자만 변경 가능하며, 저장 즉시 모든 직원의 IDP 작성 화면에 자동 반영됩니다.
+        </div>
+      </div>
+
+      <div class="adm-form">
+        <div class="adm-form-group">
+          <label style="font-weight:700;font-size:13px">사이클 명칭 <span style="color:#EF4444">*</span></label>
+          <input type="text" class="adm-input" id="idpCycleName" placeholder="예: 2026 Q2 개발 사이클" value="2026 Q1 개발 사이클" />
+          <div style="font-size:11px;color:#9CA3AF;margin-top:4px">상단 배지 및 직원 앱에 표시됩니다</div>
+        </div>
+        <div class="adm-form-row">
+          <div class="adm-form-group">
+            <label style="font-weight:700;font-size:13px">실행 기간 시작일 <span style="color:#EF4444">*</span></label>
+            <input type="date" class="adm-input" id="idpPeriodStart" value="2026-04-01" />
+          </div>
+          <div class="adm-form-group">
+            <label style="font-weight:700;font-size:13px">실행 기간 종료일 <span style="color:#EF4444">*</span></label>
+            <input type="date" class="adm-input" id="idpPeriodEnd" value="2026-06-30" />
+          </div>
+        </div>
+
+        <div id="idpPeriodPreview" style="font-size:12.5px;color:#4F46E5;margin-bottom:16px;padding:10px 14px;background:#EEF2FF;border-radius:10px;display:none">
+          <i class="fas fa-check-circle" style="margin-right:6px"></i><span id="idpPeriodPreviewText"></span>
+        </div>
+
+        <button class="adm-btn-primary" onclick="saveCycle()" style="background:linear-gradient(135deg,#6366f1,#8B5CF6);width:100%;padding:12px;font-size:14px;border-radius:10px">
+          <i class="fas fa-save"></i> IDP 실행 기간 저장 · 전 직원 자동 적용
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ① 조직 관리 -->
+  <section class="adm-page" id="page-adm-org">
+    <div class="adm-page-header">
+      <div>
+        <h1>조직 관리</h1>
+        <p>본부 · 팀 · 파트 조직도를 등록·편집합니다. 직원 추가 시 소속 정보와 자동 연동됩니다.</p>
+      </div>
+      <button class="adm-btn-primary" onclick="openAddOrgNodeModal('bizUnit', null)" style="padding:9px 18px;font-size:13px">
+        <i class="fas fa-plus"></i> 본부 추가
+      </button>
+    </div>
+
+    <!-- 탭 바 -->
+    <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+      <button class="adm-btn-outline" id="orgViewTreeBtn" onclick="switchOrgView('tree')" style="font-size:12px;padding:6px 14px;background:#6366f1;color:white;border-color:#6366f1">
+        <i class="fas fa-project-diagram"></i> 조직도 보기
+      </button>
+      <button class="adm-btn-outline" id="orgViewListBtn" onclick="switchOrgView('list')" style="font-size:12px;padding:6px 14px">
+        <i class="fas fa-list"></i> 목록 보기
+      </button>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="text" id="orgSearchInput" class="adm-input" placeholder="조직명 검색..." style="width:180px;padding:6px 12px;font-size:12px" oninput="renderOrgPage()">
+      </div>
+    </div>
+
+    <!-- 조직도 트리 뷰 -->
+    <div id="orgTreeView">
+      <div class="org-tree-container" id="orgTreeContainer"></div>
+    </div>
+
+    <!-- 목록 뷰 -->
+    <div id="orgListView" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px" id="orgListCards"></div>
+    </div>
+
+    <!-- 조직 통계 -->
+    <div class="adm-card" style="margin-top:20px">
+      <div class="adm-card-header">
+        <h3><i class="fas fa-chart-bar"></i> 조직 현황 요약</h3>
+        <button class="adm-btn-outline" style="font-size:11px;padding:5px 12px" onclick="renderOrgPage()"><i class="fas fa-sync"></i> 새로고침</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px" id="orgStatCards"></div>
+    </div>
+  </section>
+
+  <!-- ① 조직 노드 추가/편집 모달 -->
+  <div class="adm-modal-overlay" id="orgNodeModal">
+    <div class="adm-modal" style="width:440px">
+      <div class="adm-modal-header">
+        <h2 id="orgNodeModalTitle">조직 추가</h2>
+        <button class="adm-modal-close" onclick="closeAdmModal('orgNodeModal')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="adm-modal-body">
+        <input type="hidden" id="orgNodeId">
+        <input type="hidden" id="orgNodeType">
+        <input type="hidden" id="orgNodeParentId">
+        <div class="adm-form-group">
+          <label id="orgNodeNameLabel">조직명 <span class="req">*</span></label>
+          <input type="text" class="adm-input" id="orgNodeName" placeholder="조직명을 입력하세요">
+        </div>
+        <div class="adm-form-group" id="orgNodeParentGroup" style="display:none">
+          <label id="orgNodeParentLabel">상위 조직</label>
+          <select class="adm-input" id="orgNodeParentSelect"></select>
+        </div>
+        <div class="adm-form-group">
+          <label>설명 <span style="font-size:11px;color:#9CA3AF">(선택)</span></label>
+          <input type="text" class="adm-input" id="orgNodeDesc" placeholder="조직 설명">
+        </div>
+      </div>
+      <div class="adm-modal-footer">
+        <button class="adm-btn-primary" onclick="saveOrgNode()"><i class="fas fa-save"></i> 저장</button>
+        <button class="adm-btn-outline" onclick="closeAdmModal('orgNodeModal')">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 평가 관리 -->
+  <section class="adm-page" id="page-adm-eval">
+    <div class="adm-page-header">
+      <div>
+        <h1>평가 관리</h1>
+        <p>직원 활동 평가 현황 및 최종 결과를 확인합니다. 1차/2차 평가자 체계로 진행됩니다.</p>
+      </div>
+      <button class="adm-btn-primary" onclick="renderAdmEvalTable()" style="padding:8px 16px;font-size:12px">
+        <i class="fas fa-sync"></i> 새로고침
+      </button>
+    </div>
+
+    <!-- 평가 체계 안내 -->
+    <div class="adm-card" style="margin-bottom:16px;background:linear-gradient(135deg,#EEF2FF,#F0FDF4);border:1px solid #C7D2FE">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;font-size:12.5px">
+        <div>
+          <div style="font-weight:700;color:#3730A3;margin-bottom:6px"><i class="fas fa-sitemap" style="margin-right:4px"></i>평가자 배정 기준</div>
+          <div style="line-height:1.9;color:#374151">
+            <div><strong>C1/C2/C3매니저</strong> → 1차: <span class="adm-badge band-C3">C3파트장</span> 2차: <span class="adm-badge band-C4">C4팀장</span></div>
+            <div style="margin-top:4px"><span class="adm-badge band-C3">C3파트장</span> → 1차: <span class="adm-badge band-C4">C4팀장</span> 2차: <span class="adm-badge band-C4">C4사업부장</span></div>
+            <div style="margin-top:4px"><span class="adm-badge band-C4">C4팀장</span> → 1차: <span class="adm-badge band-C4">C4사업부장</span> 2차: <span class="adm-badge band-C4">C4본부장</span></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-weight:700;color:#065F46;margin-bottom:6px"><i class="fas fa-percent" style="margin-right:4px"></i>현재 평가 비중</div>
+          <div style="font-size:20px;font-weight:800;color:#059669" id="admEvalWeightDisplay">1차 60% / 2차 40%</div>
+          <a href="#" onclick="navigateAdm('adm-eval-weights');return false;" style="font-size:11px;color:#6366f1;text-decoration:underline">평가 비중 설정 메뉴에서 변경 →</a>
+        </div>
+        <div>
+          <div style="font-weight:700;color:#7C3AED;margin-bottom:6px"><i class="fas fa-info-circle" style="margin-right:4px"></i>점수 산정 방식</div>
+          <div style="font-size:12px;color:#374151;line-height:1.8">
+            <div>• 실행력(1~5점) + 소통능력(1~5점)</div>
+            <div>• 과제 평가 (5단계 등급)</div>
+            <div>• 가중 평균 후 0~100점 환산</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="adm-table-wrap">
+      <table class="adm-table">
+        <thead><tr>
+          <th>직원명</th>
+          <th>밴드</th>
+          <th>IDP 역량</th>
+          <th>1차 평가자</th>
+          <th>1차 상태</th>
+          <th>1차 점수</th>
+          <th>2차 평가자</th>
+          <th>2차 상태</th>
+          <th>2차 점수</th>
+          <th>최종 점수</th>
+          <th>종합 상태</th>
+        </tr></thead>
+        <tbody id="admEvalTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ⑥-2 평가 비중 설정 -->
+  <section class="adm-page" id="page-adm-eval-weights">
+    <div class="adm-page-header">
+      <div>
+        <h1>평가 비중 설정</h1>
+        <p>1차/2차 평가자의 점수 나눔 비율을 설정합니다. 합계는 항상 100%여야 합니다.</p>
+      </div>
+    </div>
+    <div class="adm-card" style="max-width:520px">
+      <div class="adm-card-header">
+        <h3><i class="fas fa-balance-scale"></i> 평가 비중 수정</h3>
+      </div>
+      <div style="padding-top:8px">
+        <div style="margin-bottom:20px">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:8px">
+            <i class="fas fa-user-check" style="color:#3B82F6;margin-right:6px"></i>1차 평가자 비중 (%)
+          </label>
+          <div style="display:flex;align-items:center;gap:12px">
+            <input type="range" id="evalWeight1" min="10" max="90" step="5" value="60"
+              style="flex:1;accent-color:#3B82F6" oninput="syncEvalWeights(1)">
+            <span id="evalWeight1Val" style="font-size:22px;font-weight:800;color:#3B82F6;min-width:48px">60%</span>
+          </div>
+        </div>
+        <div style="margin-bottom:24px">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:8px">
+            <i class="fas fa-user-shield" style="color:#7C3AED;margin-right:6px"></i>2차 평가자 비중 (%)
+          </label>
+          <div style="display:flex;align-items:center;gap:12px">
+            <input type="range" id="evalWeight2" min="10" max="90" step="5" value="40"
+              style="flex:1;accent-color:#7C3AED" oninput="syncEvalWeights(2)">
+            <span id="evalWeight2Val" style="font-size:22px;font-weight:800;color:#7C3AED;min-width:48px">40%</span>
+          </div>
+        </div>
+        <div style="background:#F9FAFB;border-radius:10px;padding:14px;margin-bottom:20px;display:flex;gap:16px;align-items:center;justify-content:center">
+          <div style="text-align:center">
+            <div style="font-size:11px;color:#6B7280;margin-bottom:4px">1차 평가</div>
+            <div style="font-size:28px;font-weight:800;color:#3B82F6" id="evalWeightPrev1">60%</div>
+          </div>
+          <div style="font-size:24px;color:#D1D5DB;padding:0 8px">+</div>
+          <div style="text-align:center">
+            <div style="font-size:11px;color:#6B7280;margin-bottom:4px">2차 평가</div>
+            <div style="font-size:28px;font-weight:800;color:#7C3AED" id="evalWeightPrev2">40%</div>
+          </div>
+          <div style="font-size:24px;color:#D1D5DB;padding:0 8px">=</div>
+          <div style="text-align:center">
+            <div style="font-size:11px;color:#6B7280;margin-bottom:4px">합계</div>
+            <div style="font-size:28px;font-weight:800;color:#10B981" id="evalWeightSum">100%</div>
+          </div>
+        </div>
+        <div id="evalWeightWarning" style="display:none;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:10px;color:#DC2626;font-size:12px;margin-bottom:12px">
+          <i class="fas fa-exclamation-triangle"></i> 합계가 100%이 되어야 합니다.
+        </div>
+        <button class="adm-btn-primary" onclick="saveEvalWeights()" style="width:100%;padding:12px;font-size:14px">
+          <i class="fas fa-save"></i> 평가 비중 저장 및 적용
+        </button>
+        <div style="margin-top:12px;font-size:12px;color:#6B7280;line-height:1.7">
+          <i class="fas fa-info-circle"></i> 저장 즉시 전 직원의 활동 평가 점수 산정에 적용됩니다.<br>
+          기존에 저장된 평가 데이터는 차시 조회 시 점수가 업데이트됩니다.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑥-3 점수 산정 방식 설정 -->
+  <section class="adm-page" id="page-adm-eval-scoring">
+    <div class="adm-page-header">
+      <div>
+        <h1>점수 산정 방식 설정</h1>
+        <p>평가 항목별 가중치와 환산 공식을 관리자가 직접 설정합니다.</p>
+      </div>
+    </div>
+    <div class="adm-grid-2" style="gap:16px">
+      <!-- 항목별 가중치 -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h3><i class="fas fa-balance-scale" style="color:#6366f1"></i> 평가 항목별 가중치 (%)</h3>
+        </div>
+        <p style="font-size:12px;color:#6B7280;margin-bottom:16px">3개 항목 합계가 반드시 <strong>100%</strong>가 되어야 합니다.</p>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div>
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">
+              <i class="fas fa-running" style="color:#3B82F6;margin-right:5px"></i>실행력 가중치 (%)
+            </label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="range" id="scoreWExec" min="0" max="100" step="5" value="33"
+                style="flex:1;accent-color:#3B82F6" oninput="syncScoringWeights('exec')">
+              <span id="scoreWExecVal" style="font-size:20px;font-weight:800;color:#3B82F6;min-width:48px">33%</span>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">
+              <i class="fas fa-comments" style="color:#10B981;margin-right:5px"></i>소통능력 가중치 (%)
+            </label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="range" id="scoreWComm" min="0" max="100" step="5" value="33"
+                style="flex:1;accent-color:#10B981" oninput="syncScoringWeights('comm')">
+              <span id="scoreWCommVal" style="font-size:20px;font-weight:800;color:#10B981;min-width:48px">33%</span>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px">
+              <i class="fas fa-tasks" style="color:#F59E0B;margin-right:5px"></i>과제 평가 가중치 (%)
+            </label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="range" id="scoreWTask" min="0" max="100" step="5" value="34"
+                style="flex:1;accent-color:#F59E0B" oninput="syncScoringWeights('task')">
+              <span id="scoreWTaskVal" style="font-size:20px;font-weight:800;color:#F59E0B;min-width:48px">34%</span>
+            </div>
+          </div>
+        </div>
+        <div style="background:#F9FAFB;border-radius:10px;padding:12px 16px;margin-top:16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap">
+          <div style="text-align:center"><div style="font-size:11px;color:#6B7280">실행력</div><div style="font-size:22px;font-weight:800;color:#3B82F6" id="scorePrevExec">33%</div></div>
+          <div style="font-size:18px;color:#D1D5DB">+</div>
+          <div style="text-align:center"><div style="font-size:11px;color:#6B7280">소통능력</div><div style="font-size:22px;font-weight:800;color:#10B981" id="scorePrevComm">33%</div></div>
+          <div style="font-size:18px;color:#D1D5DB">+</div>
+          <div style="text-align:center"><div style="font-size:11px;color:#6B7280">과제 평가</div><div style="font-size:22px;font-weight:800;color:#F59E0B" id="scorePrevTask">34%</div></div>
+          <div style="font-size:18px;color:#D1D5DB">=</div>
+          <div style="text-align:center"><div style="font-size:11px;color:#6B7280">합계</div><div style="font-size:22px;font-weight:800;color:#10B981" id="scoreSumDisplay">100%</div></div>
+        </div>
+        <div id="scoringWeightWarning" style="display:none;margin-top:10px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:10px;color:#DC2626;font-size:12px">
+          <i class="fas fa-exclamation-triangle"></i> 합계가 100%이 되어야 저장할 수 있습니다.
+        </div>
+      </div>
+
+      <!-- 과제 등급 점수표 -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h3><i class="fas fa-list-ol" style="color:#F59E0B"></i> 과제 등급별 점수 매핑</h3>
+        </div>
+        <p style="font-size:12px;color:#6B7280;margin-bottom:16px">과제 평가의 5단계 등급에 해당하는 환산 점수를 설정합니다 (1~5).</p>
+        <div style="display:flex;flex-direction:column;gap:12px" id="taskRatingRows">
+          <!-- JS에서 동적 렌더 -->
+        </div>
+        <div style="margin-top:16px;font-size:12px;color:#6B7280;background:#F9FAFB;border-radius:8px;padding:10px;line-height:1.8">
+          <i class="fas fa-info-circle" style="color:#6366f1;margin-right:4px"></i>
+          점수는 실행력/소통능력과 동일한 1~5 스케일로 입력하세요.<br>
+          최종 점수 = (실행력×W1 + 소통능력×W2 + 과제점수×W3) / 5 × 100
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;display:flex;gap:12px">
+      <button class="adm-btn-primary" onclick="saveScoringSettings()" style="padding:12px 32px;font-size:14px">
+        <i class="fas fa-save"></i> 점수 산정 방식 저장 및 적용
+      </button>
+      <button class="adm-btn-outline" onclick="resetScoringSettings()" style="padding:12px 20px;font-size:13px">
+        <i class="fas fa-undo"></i> 기본값 복원
+      </button>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:#6B7280">
+      <i class="fas fa-info-circle"></i> 저장 즉시 전 직원의 활동 평가 점수 재산정에 적용됩니다.
+    </div>
+  </section>
+
+  <!-- ⑦ 시스템 관리 -->  <section class="adm-page" id="page-adm-system">
+    <div class="adm-page-header">
+      <div>
+        <h1>시스템 관리</h1>
+        <p>테스트 데이터 초기화 및 시스템 설정을 관리합니다.</p>
+      </div>
+    </div>
+
+    <!-- 데이터 현황 카드 -->
+    <div class="adm-stat-cards" style="margin-bottom:24px">
+      <div class="adm-stat-card blue"><div class="adm-stat-icon"><i class="fas fa-users"></i></div><div class="adm-stat-body"><div class="adm-stat-val" id="sys-stat-users">-</div><div class="adm-stat-lbl">전체 직원</div></div></div>
+      <div class="adm-stat-card green"><div class="adm-stat-icon"><i class="fas fa-list-check"></i></div><div class="adm-stat-body"><div class="adm-stat-val" id="sys-stat-idp">-</div><div class="adm-stat-lbl">IDP 건수</div></div></div>
+      <div class="adm-stat-card orange"><div class="adm-stat-icon"><i class="fas fa-comments"></i></div><div class="adm-stat-body"><div class="adm-stat-val" id="sys-stat-feedback">-</div><div class="adm-stat-lbl">피드백 건수</div></div></div>
+      <div class="adm-stat-card purple"><div class="adm-stat-icon"><i class="fas fa-chart-line"></i></div><div class="adm-stat-body"><div class="adm-stat-val" id="sys-stat-diag">-</div><div class="adm-stat-lbl">진단 이력</div></div></div>
+    </div>
+
+    <div class="adm-grid-2" style="gap:16px">
+      <!-- 데이터 초기화 -->
+      <div class="adm-card" style="border:2px solid #FEE2E2">
+        <div class="adm-card-header" style="background:#FEF2F2;margin:-20px -20px 20px;padding:16px 20px;border-radius:12px 12px 0 0">
+          <h3 style="color:#DC2626"><i class="fas fa-trash-alt"></i> 테스트 데이터 초기화</h3>
+          <span style="font-size:11px;background:#FEE2E2;color:#DC2626;padding:3px 10px;border-radius:99px;font-weight:700">주의 필요</span>
+        </div>
+        <p style="font-size:12.5px;color:#6B7280;line-height:1.7;margin-bottom:16px">
+          localStorage에 저장된 <strong>IDP, 피드백, 진단 이력, 알림</strong> 데이터를 모두 삭제합니다.<br>
+          직원 계정 정보는 유지됩니다. 이 작업은 <strong>되돌릴 수 없습니다.</strong>
+        </p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="adm-btn-danger" onclick="admResetActivityData()" style="padding:10px 16px;font-size:13px">
+            <i class="fas fa-database"></i> IDP·피드백·진단 데이터 초기화
+          </button>
+          <button class="adm-btn-danger" onclick="admResetAllSettings()" style="padding:10px 16px;font-size:13px;background:transparent;color:#DC2626">
+            <i class="fas fa-cog"></i> 관리자 설정(실행 기간) 초기화
+          </button>
+        </div>
+      </div>
+
+      <!-- 저장소 현황 -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h3><i class="fas fa-hard-drive"></i> 저장소 현황</h3>
+          <button class="adm-btn-outline" style="padding:5px 12px;font-size:11.5px" onclick="renderSystemStats()">
+            <i class="fas fa-sync"></i> 새로고침
+          </button>
+        </div>
+        <div id="sysStorageInfo" style="font-size:13px;color:#374151;line-height:2"></div>
+      </div>
+    </div>
+
+    <!-- 역할·밴드 안내 -->
+    <div class="adm-card" style="margin-top:16px">
+      <div class="adm-card-header"><h3><i class="fas fa-info-circle"></i> 시스템 구조 안내</h3></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:12.5px">
+        <div>
+          <div style="font-weight:700;margin-bottom:8px;color:#374151">밴드 체계 <span style="font-size:10.5px;color:#6366f1;font-weight:400">— 밴드·직책 관리에서 수정</span></div>
+          <div id="sysBandTable"><div style="color:#9CA3AF;font-size:12px">로딩 중...</div></div>
+        </div>
+        <div>
+          <div style="font-weight:700;margin-bottom:8px;color:#374151">합의 라인 구조</div>
+          <div style="background:#F8FAFF;border-radius:8px;padding:12px;font-size:12px;line-height:2">
+            <div><i class="fas fa-user" style="color:#6366f1;width:16px"></i> C1 팀원 → <strong>파트장(C3) → 팀장(C4) → 사업부장(C4)</strong></div>
+            <div><i class="fas fa-user" style="color:#D97706;width:16px"></i> C3 파트장 → <strong>팀장(C4) → 사업부장(C4)</strong></div>
+            <div><i class="fas fa-user" style="color:#4F6EF7;width:16px"></i> C4 팀장 → <strong>사업부장(C4)</strong></div>
+            <div style="margin-top:6px;font-size:11px;color:#9CA3AF">※ 직원별 approvers 배열로 개별 설정 가능</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  </div><!-- /adm-pages-wrap -->
+</main>
+
+<!-- ===== 모달: 역량 편집 ===== -->
+<div class="adm-modal-overlay" id="compEditModal">
+  <div class="adm-modal">
+    <div class="adm-modal-header">
+      <h2 id="compModalTitle">역량 편집</h2>
+      <button class="adm-modal-close" onclick="closeAdmModal('compEditModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="adm-modal-body">
+      <div class="adm-form-group"><label>역량명 <span class="req">*</span></label><input type="text" class="adm-input" id="editCompName" /></div>
+      <div class="adm-form-row">
+        <div class="adm-form-group">
+          <label>구분</label>
+          <select class="adm-input" id="editCompCat">
+            <option value="job">직무역량</option>
+            <option value="leadership">리더십역량</option>
+          </select>
+        </div>
+        <div class="adm-form-group"><label>밴드 (리더십만)</label><input type="text" class="adm-input" id="editCompBand" placeholder="예: C3 (팀장·파트장)" /></div>
+      </div>
+      <div class="adm-form-group"><label>아이콘 (이모지)</label><input type="text" class="adm-input" id="editCompIcon" placeholder="예: 🎯" /></div>
+      <div class="adm-form-group"><label>정의 <span class="req">*</span></label><textarea class="adm-input adm-textarea" id="editCompDef" rows="3"></textarea></div>
+      <div class="adm-form-group">
+        <label>수준 정의</label>
+        <div id="editLevelList"></div>
+        <button class="adm-btn-outline" onclick="addLevelEdit()" style="margin-top:8px"><i class="fas fa-plus"></i> 단계 추가</button>
+      </div>
+      <div class="adm-form-group">
+        <label>행동지표</label>
+        <div id="editBehaviorList"></div>
+        <button class="adm-btn-outline" onclick="addBehaviorEdit()" style="margin-top:8px"><i class="fas fa-plus"></i> 지표 추가</button>
+      </div>
+    </div>
+    <div class="adm-modal-footer">
+      <button class="adm-btn-primary" onclick="saveCompEdit()"><i class="fas fa-save"></i> 저장</button>
+      <button class="adm-btn-outline" onclick="closeAdmModal('compEditModal')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 모달: 직원 추가 ===== -->
+<div class="adm-modal-overlay" id="addUserModal">
+  <div class="adm-modal" style="width:520px">
+    <div class="adm-modal-header">
+      <h2>직원 추가</h2>
+      <button class="adm-modal-close" onclick="closeAdmModal('addUserModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="adm-modal-body">
+      <div class="adm-form-row">
+        <div class="adm-form-group"><label>이름 <span class="req">*</span></label><input type="text" class="adm-input" id="newUserName" /></div>
+        <div class="adm-form-group">
+          <label>밴드</label>
+          <select class="adm-input" id="newUserBand" onchange="onBandSelectChange('new')">
+            <option value="C1" selected>C1</option>
+            <option value="C2">C2</option>
+            <option value="C3">C3</option>
+            <option value="C4">C4</option>
+          </select>
+        </div>
+      </div>
+      <div class="adm-form-row">
+        <div class="adm-form-group">
+          <label>본부</label>
+          <select class="adm-input" id="newUserBizUnit" onchange="onOrgSelectChange('new','bizUnit')">
+            <option value="">선택...</option>
+          </select>
+        </div>
+        <div class="adm-form-group">
+          <label>부서(팀)</label>
+          <select class="adm-input" id="newUserDept" onchange="onOrgSelectChange('new','dept')">
+            <option value="">본부 먼저 선택</option>
+          </select>
+        </div>
+      </div>
+      <div class="adm-form-row">
+        <div class="adm-form-group">
+          <label>파트</label>
+          <select class="adm-input" id="newUserPart" onchange="onOrgSelectChange('new','part')">
+            <option value="">팀 먼저 선택</option>
+          </select>
+        </div>
+        <div class="adm-form-group">
+          <label>직책</label>
+          <select class="adm-input" id="newUserPosition">
+            <option value="">밴드 먼저 선택</option>
+          </select>
+        </div>
+      </div>
+      <div class="adm-form-group"><label>이메일 <span class="req">*</span></label><input type="email" class="adm-input" id="newUserEmail" /></div>
+      <div class="adm-form-group"><label>초기 비밀번호</label><input type="text" class="adm-input" id="newUserPw" value="1234" /></div>
+    </div>
+    <div class="adm-modal-footer">
+      <button class="adm-btn-primary" onclick="saveNewUser()"><i class="fas fa-user-plus"></i> 추가</button>
+      <button class="adm-btn-outline" onclick="closeAdmModal('addUserModal')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 모달: 직원 편집 ===== -->
+<div class="adm-modal-overlay" id="editUserModal">
+  <div class="adm-modal" style="width:520px">
+    <div class="adm-modal-header">
+      <h2>직원 정보 수정</h2>
+      <button class="adm-modal-close" onclick="closeAdmModal('editUserModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="adm-modal-body">
+      <input type="hidden" id="editUserId" />
+      <div class="adm-form-row">
+        <div class="adm-form-group"><label>이름 <span class="req">*</span></label><input type="text" class="adm-input" id="editUserName" /></div>
+        <div class="adm-form-group">
+          <label>밴드</label>
+          <select class="adm-input" id="editUserBand" onchange="onBandSelectChange('edit')">
+            <option value="C1">C1</option>
+            <option value="C2">C2</option>
+            <option value="C3">C3</option>
+            <option value="C4">C4</option>
+          </select>
+        </div>
+      </div>
+      <div class="adm-form-row">
+        <div class="adm-form-group">
+          <label>본부</label>
+          <select class="adm-input" id="editUserBizUnit" onchange="onOrgSelectChange('edit','bizUnit')">
+            <option value="">선택...</option>
+          </select>
+
+        </div>
+        <div class="adm-form-group">
+          <label>부서(팀)</label>
+          <select class="adm-input" id="editUserDept" onchange="onOrgSelectChange('edit','dept')">
+            <option value="">본부 먼저 선택</option>
+          </select>
+
+        </div>
+      </div>
+      <div class="adm-form-row">
+        <div class="adm-form-group">
+          <label>파트</label>
+          <select class="adm-input" id="editUserPart" onchange="onOrgSelectChange('edit','part')">
+            <option value="">팀 먼저 선택</option>
+          </select>
+
+        </div>
+        <div class="adm-form-group">
+          <label>직책</label>
+          <select class="adm-input" id="editUserPosition">
+            <option value="">직책 선택...</option>
+          </select>
+        </div>
+      </div>
+      <div class="adm-form-group"><label>이메일</label><input type="email" class="adm-input" id="editUserEmail" /></div>
+      <div class="adm-form-group"><label>비밀번호 재설정</label><input type="text" class="adm-input" id="editUserPw" placeholder="변경 시에만 입력" /></div>
+    </div>
+    <div class="adm-modal-footer">
+      <button class="adm-btn-primary" onclick="saveEditUser()"><i class="fas fa-save"></i> 저장</button>
+      <button class="adm-btn-outline" onclick="closeAdmModal('editUserModal')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div class="adm-toast" id="admToast"><i class="fas fa-check-circle"></i><span id="admToastMsg"></span></div>
+
+<script src="js/data.js"></script>
+<script src="js/firebase.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
