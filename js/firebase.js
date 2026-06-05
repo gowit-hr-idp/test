@@ -193,7 +193,18 @@ async function loadAllDataAsync() {
     if (Array.isArray(saved.DIAG_HISTORY))               DIAG_HISTORY               = saved.DIAG_HISTORY;
     if (saved.ACTIVITY_EVALS && typeof saved.ACTIVITY_EVALS === 'object')
       ACTIVITY_EVALS = saved.ACTIVITY_EVALS;
-    console.log('[Firebase] 메인 데이터 로드 완료 ✅');
+    console.log('[Firebase] 메인 데이터 로드 완료 ✅',
+      'IDP:', (IDP_LIST||[]).length + '건',
+      '/ FEEDBACK:', (FEEDBACK_LIST||[]).length + '건',
+      '/ 알림:', (NOTIFICATION_LIST||[]).length + '건');
+    // IDP_LIST 상세 로그
+    if ((IDP_LIST||[]).length > 0) {
+      console.log('[Firebase] IDP_LIST 내용:', IDP_LIST.map(i => ({
+        id: i.id, userId: i.userId, userName: i.userName,
+        status: i.status,
+        approvalLineCount: (i.approvalLine||[]).length
+      })));
+    }
   } catch(e) {
     console.warn('[Firebase] 메인 데이터 로드 실패 → localStorage fallback:', e);
     _loadAllData_localStorage();
@@ -574,7 +585,7 @@ function startRealtimeSync(onUsersChange, onMainChange, onBandChange) {
       if (Array.isArray(saved.FEEDBACK_LIST))     FEEDBACK_LIST     = saved.FEEDBACK_LIST;
       if (Array.isArray(saved.ONE_ON_ONE_LIST))   ONE_ON_ONE_LIST   = saved.ONE_ON_ONE_LIST;
       if (Array.isArray(saved.NOTIFICATION_LIST)) NOTIFICATION_LIST = saved.NOTIFICATION_LIST;
-      console.log('[Firebase] 실시간 메인 데이터 업데이트');
+      console.log('[Firebase] 실시간 메인 데이터 업데이트 — IDP:', (IDP_LIST||[]).length + '건');
       if (typeof onMainChange === 'function') onMainChange();
     }, err => console.warn('[Firebase] 메인 실시간 오류:', err));
 

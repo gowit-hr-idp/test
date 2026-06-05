@@ -115,13 +115,23 @@ function _initAppAfterLoad() {
   initGlobalSearch();
   _applyAdminCycleName();
 
-  // ★ 앱 초기화 완료 후 approvalLine 일괄 복구 (기존 IDP 대응)
+  // ★ 앱 초기화 완료 후 전체 진단 + approvalLine 일괄 복구
   setTimeout(function() {
+    // 전체 IDP 상태 진단 로그
+    console.log('[Init 진단] USERS_DB:', (typeof USERS_DB !== 'undefined' ? USERS_DB.length : 0) + '명',
+      USERS_DB ? USERS_DB.map(u => u.id + '(' + u.name + ')').join(', ') : '');
+    console.log('[Init 진단] IDP_LIST:', (typeof IDP_LIST !== 'undefined' ? IDP_LIST.length : 0) + '건',
+      IDP_LIST ? IDP_LIST.map(i => i.id + '/userId:' + i.userId + '/status:' + i.status + '/apvLine:' + (i.approvalLine||[]).length + '단계').join(' | ') : '');
+    console.log('[Init 진단] CURRENT_USER:', CURRENT_USER ? CURRENT_USER.id + '(' + CURRENT_USER.name + ')' : 'null');
+
     if (typeof repairAllApprovalLines === 'function') {
       const count = repairAllApprovalLines();
-      if (count > 0) console.log('[Init] approvalLine 자동복구 완료:', count, '건');
+      console.log('[Init] approvalLine 자동복구:', count + '건');
     }
-  }, 500);
+    // 복구 후 화면 갱신
+    renderIDPTable();
+    renderDashboard();
+  }, 800);
 
   // ⑨ 100ms 후 사이드바 재확인 (혹시 덮어쓰이는 경우 대비)
   setTimeout(function() { _updateSidebar(CURRENT_USER); }, 100);
@@ -143,6 +153,8 @@ function _initAppAfterLoad() {
         }
       },
       function onMainChange() {
+        // ★ IDP 로드 후 approvalLine 없는 건 자동 복구
+        if (typeof repairAllApprovalLines === 'function') repairAllApprovalLines();
         renderDashboard();
         renderIDPTable();
         // 구성원 IDP 현황 페이지가 열려 있으면 재렌더링
