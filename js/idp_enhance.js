@@ -684,8 +684,25 @@ function getApprovalLineEnhanced(user) {
   if (!user) return [];
 
   const lines = typeof IDP_CUSTOM_APPROVAL_LINES !== 'undefined' ? IDP_CUSTOM_APPROVAL_LINES : [];
+  const allUsers = typeof USERS_DB !== 'undefined' ? USERS_DB : [];
+  const posIcons = { '파트장':'👤','팀장':'🏢','사업부장':'🏛️','본부장':'🏛️','매니저':'👤','HR매니저':'👤' };
 
-  // 우선순위: 파트 > 팀 > 사업부 > 전체
+  // ── bandRole 키 → 실제 사용자 매칭 ──
+  function _resolveByBandRole(bandRole, submitter) {
+    const hasPos = (u, ...kw) => kw.some(k => (u.position||'').includes(k));
+    const myId = submitter.id, myDept = submitter.dept||'',
+          myPart = submitter.part||'', myBizUnit = submitter.bizUnit||'';
+    const find = cond => allUsers.find(u => u.id !== myId && cond(u)) || null;
+    switch(bandRole) {
+      case 'C3파트장':   return find(u => u.band==='C3' && hasPos(u,'파트장') && u.dept===myDept && (myPart?u.part===myPart:true));
+      case 'C4팀장':     return find(u => u.band==='C4' && hasPos(u,'팀장')   && u.dept===myDept);
+      case 'C4사업부장': return find(u => u.band==='C4' && hasPos(u,'사업부장') && u.bizUnit===myBizUnit);
+      case 'C4본부장':   return find(u => u.band==='C4' && hasPos(u,'본부장')  && (u.bizUnit===myBizUnit||!u.bizUnit));
+      default: return null;
+    }
+  }
+
+  // ── 커스텀 합의라인 적용 (우선순위: 파트 > 팀 > 사업부 > 전체) ──
   const priority = ['part','team','bizUnit','all'];
   for (const ptype of priority) {
     const match = lines.find(l => {
@@ -697,15 +714,41 @@ function getApprovalLineEnhanced(user) {
       return false;
     });
     if (match && match.steps && match.steps.length > 0) {
-      return match.steps.map(s => ({
-        userId: s.userId,
-        name:   s.name,
-        title:  s.name,
-        role:   s.role,
-        status: 'waiting',
-        date:   null,
-        comment: ''
-      }));
+      const resolved = [];
+      match.steps.forEach(s => {
+        if (s.bandRole) {
+          // ── bandRole 기반: 실제 사용자를 동적 매칭 ──
+          const u = _resolveByBandRole(s.bandRole, user);
+          if (u) {
+            resolved.push({
+              userId:  u.id,
+              name:    u.name,
+              title:   u.position,
+              role:    s.roleLabel || s.role || '합의',
+              icon:    posIcons[u.position] || '👤',
+              status:  'waiting',
+              date:    null,
+              comment: ''
+            });
+          }
+        } else if (s.userId) {
+          // ── 구버전 호환: userId 직접 지정 ──
+          const u = allUsers.find(x => x.id === s.userId);
+          if (u) {
+            resolved.push({
+              userId:  u.id,
+              name:    u.name,
+              title:   u.position,
+              role:    s.role || '합의',
+              icon:    posIcons[u.position] || '👤',
+              status:  'waiting',
+              date:    null,
+              comment: ''
+            });
+          }
+        }
+      });
+      if (resolved.length > 0) return resolved;
     }
   }
 

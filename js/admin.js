@@ -1875,14 +1875,20 @@ function admApvRenderList() {
     const label = orgTypeLabel[line.orgType] || line.orgType;
     const color = orgTypeColor[line.orgType] || '#6B7280';
     const bg    = orgTypeBg[line.orgType]    || '#F3F4F6';
-    const steps = (line.steps || []).map((s, i) => `
+    const steps = (line.steps || []).map((s, i) => {
+      // bandRole이 있으면 배지 색상 적용
+      const br = APV_BAND_ROLES.find(r => r.key === s.bandRole);
+      const badge = br
+        ? `<span style="background:${br.badge};color:${br.color};font-weight:700;font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid ${br.color}40">${br.label}</span>`
+        : `<span style="color:#374151">${s.name || s.bandRole || ''}</span>`;
+      const roleTag = (s.roleLabel||s.role) ? `<span style="color:#9CA3AF;font-size:10px">(${s.roleLabel||s.role})</span>` : '';
+      return `
       <span style="display:inline-flex;align-items:center;gap:4px;background:#F8FAFF;border:1px solid #E8EEFF;border-radius:6px;padding:3px 9px;font-size:12px">
         <span style="width:16px;height:16px;background:#6366F1;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">${i+1}</span>
-        ${s.name}
-        <span style="color:#9CA3AF;font-size:11px">${s.role ? '('+s.role+')' : ''}</span>
+        ${badge}${roleTag}
       </span>
-      ${i < line.steps.length-1 ? '<i class="fas fa-arrow-right" style="color:#D1D5DB;font-size:11px;margin:0 2px"></i>' : ''}
-    `).join('');
+      ${i < line.steps.length-1 ? '<i class="fas fa-arrow-right" style="color:#D1D5DB;font-size:11px;margin:0 2px"></i>' : ''}`;
+    }).join('');
 
     return `
     <div style="padding:16px 20px;border-bottom:1px solid #F9FAFB;display:flex;flex-direction:column;gap:10px" data-apv-id="${line.id}">
@@ -1908,7 +1914,7 @@ function admApvRenderList() {
   }).join('');
 }
 
-/* ── 조직 유형 변경 시 프리셋 버튼 업데이트 ── */
+/* ── 조직 유형 변경 시 ORG_DB 기반 프리셋 드롭다운 ── */
 function admApvOrgTypeChange() {
   const orgType  = document.getElementById('apvOrgType')?.value || 'all';
   const orgUnit  = document.getElementById('apvOrgUnit');
@@ -1920,53 +1926,102 @@ function admApvOrgTypeChange() {
     presets.innerHTML = '';
     return;
   }
-  if (orgUnit) { orgUnit.disabled = false; orgUnit.placeholder = '조직명 직접 입력 또는 아래에서 선택'; }
+  if (orgUnit) { orgUnit.disabled = false; orgUnit.value = ''; orgUnit.placeholder = '아래에서 선택하세요'; }
 
-  const users = (typeof USERS_DB !== 'undefined' ? USERS_DB : []);
-  const fieldMap = { bizUnit:'bizUnit', team:'dept', part:'part' };
-  const field = fieldMap[orgType];
-  const values = [...new Set(users.map(u => u[field]).filter(Boolean))].sort();
+  // ORG_DB에서 해당 타입 노드 로드 (Firebase 실시간 → localStorage fallback)
+  let orgNodes = [];
+  try {
+    const raw = localStorage.getItem('IDP_ORG_DB');
+    if (raw) orgNodes = JSON.parse(raw);
+  } catch(e) {}
+  if (!orgNodes.length && typeof DEFAULT_ORG_NODES !== 'undefined') {
+    orgNodes = DEFAULT_ORG_NODES;
+  }
 
-  presets.innerHTML = values.map(v =>
-    `<button type="button" onclick="document.getElementById('apvOrgUnit').value='${v}'"
-      style="font-size:11.5px;padding:4px 10px;background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;cursor:pointer;color:#374151">${v}</button>`
+  // orgType에 맞는 타입 필터
+  const typeMap = { bizUnit: 'bizUnit', team: 'dept', part: 'part' };
+  const nodeType = typeMap[orgType] || orgType;
+  const names = orgNodes
+    .filter(n => n.type === nodeType)
+    .map(n => n.name)
+    .filter(Boolean);
+
+  // USERS_DB에서도 보완 (ORG_DB에 없는 경우)
+  if (!names.length) {
+    const users = (typeof USERS_DB !== 'undefined' ? USERS_DB : []);
+    const fieldMap2 = { bizUnit:'bizUnit', team:'dept', part:'part' };
+    const field2 = fieldMap2[orgType];
+    (typeof [...new Set] !== 'undefined' ? [...new Set(users.map(u => u[field2]).filter(Boolean))] : [])
+      .forEach(v => names.push(v));
+  }
+
+  const unique = [...new Set(names)].sort();
+
+  if (!unique.length) {
+    presets.innerHTML = '<span style="font-size:11.5px;color:#9CA3AF">등록된 조직이 없습니다.</span>';
+    return;
+  }
+
+  presets.innerHTML = unique.map(v =>
+    `<button type="button" onclick="document.getElementById('apvOrgUnit').value='${v}';this.parentNode.querySelectorAll('button').forEach(b=>b.style.background='#F3F4F6');this.style.background='#EEF2FF'"
+      style="font-size:11.5px;padding:5px 12px;background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;cursor:pointer;color:#374151;transition:.15s">${v}</button>`
   ).join('');
 }
 
-/* ── 합의자 행 추가 ── */
-function admApvAddStep(userId, role) {
+/* ── 합의자 행 추가 (밴드 역할 고정 선택) ── */
+// bandRole: 'C3파트장' | 'C4팀장' | 'C4사업부장' | 'C4본부장'
+// roleLabel: '중간합의' | '최종합의'
+const APV_BAND_ROLES = [
+  { key: 'C3파트장',   label: 'C3 파트장',   badge: '#FEF3C7', color: '#D97706' },
+  { key: 'C4팀장',     label: 'C4 팀장',     badge: '#DCFCE7', color: '#059669' },
+  { key: 'C4사업부장', label: 'C4 사업부장', badge: '#EDE9FE', color: '#7C3AED' },
+  { key: 'C4본부장',   label: 'C4 본부장',   badge: '#FEE2E2', color: '#DC2626' },
+];
+
+function admApvAddStep(bandRole, roleLabel) {
   const container = document.getElementById('apvStepsWrap');
   if (!container) return;
-  const idx   = container.querySelectorAll('.apv-step-row').length;
-  const users = (typeof USERS_DB !== 'undefined' ? USERS_DB : []);
+  const idx = container.querySelectorAll('.apv-step-row').length;
+  if (idx >= 4) { admShowToast('합의 단계는 최대 4단계까지 가능합니다.'); return; }
 
-  const opts = users
-    .filter(u => u.role !== 'admin')
-    .map(u => `<option value="${u.id}" ${u.id === userId ? 'selected' : ''}>
-      ${u.name} (${u.band} · ${u.position || '-'})
-    </option>`).join('');
+  const selOpts = APV_BAND_ROLES.map(r =>
+    `<option value="${r.key}" ${r.key === bandRole ? 'selected' : ''}>${r.label}</option>`
+  ).join('');
 
   const row = document.createElement('div');
   row.className = 'apv-step-row';
   row.style.cssText = 'display:flex;align-items:center;gap:8px;background:#F8FAFF;border:1px solid #E8EEFF;border-radius:8px;padding:10px 12px';
   row.innerHTML = `
-    <span style="width:22px;height:22px;background:#6366F1;color:#fff;border-radius:50%;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${idx+1}</span>
-    <select class="adm-input apv-user-sel" style="flex:1;font-size:13px">
-      <option value="">합의자 선택</option>${opts}
+    <span class="apv-step-num" style="width:22px;height:22px;background:#6366F1;color:#fff;border-radius:50%;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${idx+1}</span>
+    <select class="adm-input apv-band-sel" style="flex:1;font-size:13px" onchange="_admApvUpdateBadge(this)">
+      <option value="">합의자 역할 선택</option>${selOpts}
     </select>
-    <input type="text" class="adm-input apv-role-inp" placeholder="역할명 (예: 파트장)" value="${role || ''}"
+    <input type="text" class="adm-input apv-role-inp" placeholder="단계 이름 (예: 중간합의)" value="${roleLabel || ''}"
       style="width:120px;font-size:12px">
     <button onclick="this.closest('.apv-step-row').remove();_admApvReindex()"
       style="background:none;border:none;color:#EF4444;cursor:pointer;padding:4px;font-size:15px">
       <i class="fas fa-times-circle"></i>
     </button>`;
   container.appendChild(row);
+  // 선택된 경우 배지 초기 표시
+  if (bandRole) _admApvUpdateBadge(row.querySelector('.apv-band-sel'));
+}
+
+/* 선택 배지 색상 업데이트 */
+function _admApvUpdateBadge(sel) {
+  const found = APV_BAND_ROLES.find(r => r.key === sel?.value);
+  if (sel) {
+    sel.style.background  = found ? found.badge : '';
+    sel.style.color       = found ? found.color : '';
+    sel.style.fontWeight  = found ? '700' : '';
+    sel.style.borderColor = found ? found.color + '80' : '';
+  }
 }
 
 function _admApvReindex() {
   const rows = document.querySelectorAll('#apvStepsWrap .apv-step-row');
   rows.forEach((row, i) => {
-    const num = row.querySelector('span');
+    const num = row.querySelector('.apv-step-num');
     if (num) num.textContent = i + 1;
   });
 }
@@ -2002,7 +2057,8 @@ function admApvShowForm(id) {
   admApvOrgTypeChange();
   if (orgUnitEl) orgUnitEl.value = line.orgUnit || '';
 
-  (line.steps || []).forEach(s => admApvAddStep(s.userId, s.role));
+  // bandRole 또는 구버전 userId 호환
+  (line.steps || []).forEach(s => admApvAddStep(s.bandRole || s.userId || '', s.roleLabel || s.role || ''));
 
   // 폼 카드로 스크롤
   document.getElementById('apvFormCard')?.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -2038,17 +2094,23 @@ function admApvSave() {
     admShowToast('⚠️ 조직명을 입력하거나 버튼으로 선택하세요.'); return;
   }
 
-  // 단계 수집
+  // 단계 수집 (밴드 역할 기반)
   const steps = [];
   container?.querySelectorAll('.apv-step-row').forEach((row, i) => {
-    const uid  = row.querySelector('.apv-user-sel')?.value;
-    const role = row.querySelector('.apv-role-inp')?.value?.trim() || '';
-    if (!uid) return;
-    const user = (typeof USERS_DB !== 'undefined' ? USERS_DB : []).find(u => u.id === uid);
-    steps.push({ order: i+1, userId: uid, name: user?.name || uid, role: role || user?.position || '' });
+    const bandRole  = row.querySelector('.apv-band-sel')?.value || '';
+    const roleLabel = row.querySelector('.apv-role-inp')?.value?.trim() || '';
+    if (!bandRole) return;
+    const found = APV_BAND_ROLES.find(r => r.key === bandRole);
+    steps.push({
+      order:     i + 1,
+      bandRole,                               // 예: 'C3파트장'
+      name:      found ? found.label : bandRole, // 표시명: 'C3 파트장'
+      roleLabel: roleLabel || _admDefaultRoleLabel(i, steps.length + 1), // '중간합의'/'최종합의'
+      role:      roleLabel || _admDefaultRoleLabel(i, steps.length + 1), // 하위 호환
+    });
   });
 
-  if (steps.length === 0) { admShowToast('⚠️ 합의자를 1명 이상 추가하세요.'); return; }
+  if (steps.length === 0) { admShowToast('⚠️ 합의자 역할을 1개 이상 선택하세요.'); return; }
 
   const now = new Date().toISOString().slice(0,10);
 
@@ -2087,7 +2149,13 @@ function admApvDelete(id) {
   admShowToast('🗑️ 삭제되었습니다.');
 }
 
-/* ── 기존 IDP 합의라인 일괄 재생성 (admin.js 독립 구현 — app.js 불필요) ── */
+/* ── 단계 기본 라벨 ── */
+function _admDefaultRoleLabel(stepIdx, totalSteps) {
+  if (totalSteps === 1) return '최종합의';
+  return stepIdx === 0 ? '중간합의' : '최종합의';
+}
+
+/* ── 기존 IDP 합의라인 일괄 재생성 (admin.js 독립 구현) ── */
 function admApvRebuildAll() {
   if (!confirm(
     '현재 "합의 요청" / "합의 진행중" 상태의 모든 IDP 합의라인을\n' +
@@ -2100,11 +2168,28 @@ function admApvRebuildAll() {
   const allLines = IDP_CUSTOM_APPROVAL_LINES || [];
   const posIcons = { '파트장':'👤','팀장':'🏢','사업부장':'🏛️','본부장':'🏛️','매니저':'👤','HR매니저':'👤' };
 
-  // 합의라인 생성 (커스텀 우선 → 밴드 자동)
-  function _buildLine(user) {
-    if (!user) return [];
-    const myId = user.id, myBand = user.band||'', myPart = user.part||'',
-          myDept = user.dept||'', myBizUnit = user.bizUnit||'';
+  // ── 밴드 역할 키 → 실제 사용자 매칭 ──
+  function _resolveByBandRole(bandRole, submitter) {
+    const hasPos = (u, ...kw) => kw.some(k => (u.position||'').includes(k));
+    const myId = submitter.id, myDept = submitter.dept||'',
+          myPart = submitter.part||'', myBizUnit = submitter.bizUnit||'';
+    const find = cond => users.find(u => u.id !== myId && cond(u)) || null;
+    switch(bandRole) {
+      case 'C3파트장':   return find(u => u.band==='C3' && hasPos(u,'파트장') && u.dept===myDept && (myPart?u.part===myPart:true));
+      case 'C4팀장':     return find(u => u.band==='C4' && hasPos(u,'팀장')   && u.dept===myDept);
+      case 'C4사업부장': return find(u => u.band==='C4' && hasPos(u,'사업부장') && u.bizUnit===myBizUnit);
+      case 'C4본부장':   return find(u => u.band==='C4' && hasPos(u,'본부장')  && (u.bizUnit===myBizUnit||!u.bizUnit));
+      default: return null;
+    }
+  }
+
+  // ── 합의라인 생성 (커스텀 bandRole 우선 → 밴드 자동) ──
+  function _buildLine(submitter) {
+    if (!submitter) return [];
+    const myId = submitter.id, myBand = submitter.band||'',
+          myPart = submitter.part||'', myDept = submitter.dept||'',
+          myBizUnit = submitter.bizUnit||'';
+
     // 커스텀 라인 (파트>팀>사업부>전체)
     for (const ptype of ['part','team','bizUnit','all']) {
       const m = allLines.find(l => {
@@ -2113,23 +2198,35 @@ function admApvRebuildAll() {
         return l.orgUnit === (ptype==='part' ? myPart : ptype==='team' ? myDept : myBizUnit);
       });
       if (m && (m.steps||[]).length > 0) {
-        return m.steps.map(s => ({ userId:s.userId,name:s.name,title:s.name,role:s.role,status:'waiting',date:null,comment:'' }));
+        // bandRole 기반이면 실제 사용자로 변환
+        const resolved = [];
+        m.steps.forEach(s => {
+          if (s.bandRole) {
+            const u = _resolveByBandRole(s.bandRole, submitter);
+            if (u) resolved.push({ role: s.roleLabel||s.role||'합의', title: u.position, name: u.name, userId: u.id, icon: posIcons[u.position]||'👤', status:'waiting', date:null, comment:'' });
+          } else if (s.userId) {
+            const u = users.find(x => x.id === s.userId);
+            if (u) resolved.push({ role: s.role||'합의', title: u.position, name: u.name, userId: u.id, icon: posIcons[u.position]||'👤', status:'waiting', date:null, comment:'' });
+          }
+        });
+        if (resolved.length > 0) return resolved;
       }
     }
-    // 밴드 자동
-    const toStep = (u,role) => ({ role,title:u.position,name:u.name,userId:u.id,icon:posIcons[u.position]||'👤',status:'waiting',date:null,comment:'' });
+
+    // 밴드 자동 fallback
+    const toStep = (u, role) => ({ role, title:u.position, name:u.name, userId:u.id, icon:posIcons[u.position]||'👤', status:'waiting', date:null, comment:'' });
     const hasPos = (u,...kw) => kw.some(k=>(u.position||'').includes(k));
     const findFirst = cond => users.find(u=>u.id!==myId&&cond(u))||null;
     const line=[];
-    if (myBand==='C1'||myBand==='C2'||(myBand==='C3'&&!hasPos(user,'파트장'))) {
+    if (myBand==='C1'||myBand==='C2'||(myBand==='C3'&&!hasPos(submitter,'파트장'))) {
       const p=findFirst(u=>u.band==='C3'&&hasPos(u,'파트장')&&u.dept===myDept&&(myPart?u.part===myPart:true));
       const t=findFirst(u=>u.band==='C4'&&hasPos(u,'팀장')&&u.dept===myDept);
       if(p) line.push(toStep(p,'중간합의')); if(t) line.push(toStep(t,'최종합의'));
-    } else if (myBand==='C3'&&hasPos(user,'파트장')) {
+    } else if (myBand==='C3'&&hasPos(submitter,'파트장')) {
       const t=findFirst(u=>u.band==='C4'&&hasPos(u,'팀장')&&u.dept===myDept);
       const b=findFirst(u=>u.band==='C4'&&hasPos(u,'사업부장')&&u.bizUnit===myBizUnit);
       if(t) line.push(toStep(t,'중간합의')); if(b) line.push(toStep(b,'최종합의'));
-    } else if (myBand==='C4'&&hasPos(user,'팀장')) {
+    } else if (myBand==='C4'&&hasPos(submitter,'팀장')) {
       const b=findFirst(u=>u.band==='C4'&&hasPos(u,'사업부장')&&u.bizUnit===myBizUnit);
       const h=findFirst(u=>u.band==='C4'&&hasPos(u,'본부장')&&(u.bizUnit===myBizUnit||!u.bizUnit));
       if(b) line.push(toStep(b,'중간합의')); if(h) line.push(toStep(h,'최종합의'));
