@@ -102,7 +102,8 @@ function navigateAdm(pageId) {
     'adm-eval':          '평가 관리',
     'adm-eval-weights':  '평가 비중 설정',
     'adm-eval-scoring':  '점수 산정 방식',
-    'adm-system':        '시스템 관리'
+    'adm-system':        '시스템 관리',
+    'adm-approval-line': '합의라인 관리'
   };
   document.getElementById('admBreadcrumb').textContent = labels[pageId] || '';
 
@@ -133,6 +134,7 @@ function navigateAdm(pageId) {
     }
   }
   if (pageId === 'adm-system')        { renderSystemStats(); }
+  if (pageId === 'adm-approval-line') { admApvInit(); }
   if (pageId === 'adm-comp-targets')  { initCompTargetsPage(); }
   if (pageId === 'adm-eval')          { renderAdmEvalTable(); loadEvalWeightDisplay(); }
   if (pageId === 'adm-eval-weights')  { loadEvalWeightsForm(); }
@@ -1750,6 +1752,8 @@ async function admForceResetFirebase() {
   }
 }
 
+// ── (구버전 함수 제거됨 — 기능은 합의라인 관리 탭의 admApvRebuildAll로 통합) ──
+
 function admResetActivityData() {
   if (!confirm('⚠️ IDP, 피드백, 진단 이력, 알림 데이터를 모두 삭제합니다.\n직원 계정 정보는 유지됩니다.\n\n계속하시겠습니까?')) return;
   // localStorage DB 키 삭제
@@ -1795,6 +1799,375 @@ function admResetAllSettings() {
 function closeAdmModal(id) {
   const el = document.getElementById(id);
   if (el) el.classList.remove('open');
+}
+
+// ====================================================
+// 합의라인 관리 페이지 (adm-approval-line)
+// ====================================================
+
+// IDP_CUSTOM_APPROVAL_LINES 전역 배열 보장 (data.js에서 선언된 경우 그대로 사용)
+if (typeof IDP_CUSTOM_APPROVAL_LINES === 'undefined') {
+  window.IDP_CUSTOM_APPROVAL_LINES = [];
+}
+
+/* ── 저장 키 ── */
+const APV_STORAGE_KEY = 'IDP_CUSTOM_APPROVAL_LINES';
+
+/* ── 저장 (Firebase/localStorage 자동 연동) ── */
+function _apvSaveStorage() {
+  // saveAllDataAsync(Firebase) 또는 saveAllData(localStorage) 중 있는 것 사용
+  if (typeof saveAllDataAsync === 'function') saveAllDataAsync();
+  else if (typeof saveAllData === 'function') saveAllData();
+  else {
+    // fallback: 직접 localStorage 저장
+    try { localStorage.setItem(APV_STORAGE_KEY, JSON.stringify(IDP_CUSTOM_APPROVAL_LINES)); }
+    catch(e) { console.warn('[ApvLine] 저장 실패', e); }
+  }
+}
+
+function _apvLoadStorage() {
+  // Firebase 연동 중이면 이미 로드됨 — IDP_CUSTOM_APPROVAL_LINES가 비어있을 때만 localStorage fallback
+  if (IDP_CUSTOM_APPROVAL_LINES && IDP_CUSTOM_APPROVAL_LINES.length > 0) return;
+  try {
+    const raw = localStorage.getItem(APV_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        IDP_CUSTOM_APPROVAL_LINES.length = 0;
+        parsed.forEach(item => IDP_CUSTOM_APPROVAL_LINES.push(item));
+      }
+    }
+  } catch(e) { console.warn('[ApvLine] 로드 실패', e); }
+}
+
+/* ── 페이지 진입 시 초기화 ── */
+function admApvInit() {
+  _apvLoadStorage();
+  admApvRenderList();
+  admApvReset();
+  admApvOrgTypeChange();
+}
+
+/* ── 목록 렌더 ── */
+function admApvRenderList() {
+  const list  = document.getElementById('apvLineList');
+  const count = document.getElementById('apvLineCount');
+  if (!list) return;
+
+  const lines = IDP_CUSTOM_APPROVAL_LINES || [];
+  if (count) count.textContent = lines.length + '건';
+
+  if (lines.length === 0) {
+    list.innerHTML = `
+      <div style="text-align:center;padding:48px 24px;color:#9CA3AF;font-size:13px">
+        <i class="fas fa-code-branch" style="font-size:32px;margin-bottom:12px;display:block;opacity:.3"></i>
+        설정된 합의라인이 없습니다.<br>
+        <span style="font-size:12px">밴드 자동 규칙이 적용됩니다.</span>
+      </div>`;
+    return;
+  }
+
+  const orgTypeLabel = { all:'전체', bizUnit:'사업부', team:'팀', part:'파트' };
+  const orgTypeColor = { all:'#6366F1', bizUnit:'#0369A1', team:'#059669', part:'#D97706' };
+  const orgTypeBg    = { all:'#EEF2FF', bizUnit:'#E0F2FE', team:'#DCFCE7', part:'#FEF3C7' };
+
+  list.innerHTML = lines.map((line, idx) => {
+    const label = orgTypeLabel[line.orgType] || line.orgType;
+    const color = orgTypeColor[line.orgType] || '#6B7280';
+    const bg    = orgTypeBg[line.orgType]    || '#F3F4F6';
+    const steps = (line.steps || []).map((s, i) => `
+      <span style="display:inline-flex;align-items:center;gap:4px;background:#F8FAFF;border:1px solid #E8EEFF;border-radius:6px;padding:3px 9px;font-size:12px">
+        <span style="width:16px;height:16px;background:#6366F1;color:#fff;border-radius:50%;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">${i+1}</span>
+        ${s.name}
+        <span style="color:#9CA3AF;font-size:11px">${s.role ? '('+s.role+')' : ''}</span>
+      </span>
+      ${i < line.steps.length-1 ? '<i class="fas fa-arrow-right" style="color:#D1D5DB;font-size:11px;margin:0 2px"></i>' : ''}
+    `).join('');
+
+    return `
+    <div style="padding:16px 20px;border-bottom:1px solid #F9FAFB;display:flex;flex-direction:column;gap:10px" data-apv-id="${line.id}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;font-weight:700;background:${bg};color:${color};padding:3px 10px;border-radius:99px;border:1px solid ${color}30">${label}</span>
+          <strong style="font-size:13.5px;color:#111827">${line.orgUnit || '(전체 적용)'}</strong>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button onclick="admApvShowForm('${line.id}')" style="background:#EEF2FF;color:#6366F1;border:none;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600">
+            <i class="fas fa-pen" style="margin-right:3px"></i>수정
+          </button>
+          <button onclick="admApvDelete('${line.id}')" style="background:#FEF2F2;color:#EF4444;border:none;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
+        ${steps}
+      </div>
+      ${line.updatedAt ? `<div style="font-size:11px;color:#9CA3AF">최종 수정: ${line.updatedAt}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+/* ── 조직 유형 변경 시 프리셋 버튼 업데이트 ── */
+function admApvOrgTypeChange() {
+  const orgType  = document.getElementById('apvOrgType')?.value || 'all';
+  const orgUnit  = document.getElementById('apvOrgUnit');
+  const presets  = document.getElementById('apvOrgPresets');
+  if (!presets) return;
+
+  if (orgType === 'all') {
+    if (orgUnit) { orgUnit.value = ''; orgUnit.disabled = true; orgUnit.placeholder = '전체 적용 (입력 불필요)'; }
+    presets.innerHTML = '';
+    return;
+  }
+  if (orgUnit) { orgUnit.disabled = false; orgUnit.placeholder = '조직명 직접 입력 또는 아래에서 선택'; }
+
+  const users = (typeof USERS_DB !== 'undefined' ? USERS_DB : []);
+  const fieldMap = { bizUnit:'bizUnit', team:'dept', part:'part' };
+  const field = fieldMap[orgType];
+  const values = [...new Set(users.map(u => u[field]).filter(Boolean))].sort();
+
+  presets.innerHTML = values.map(v =>
+    `<button type="button" onclick="document.getElementById('apvOrgUnit').value='${v}'"
+      style="font-size:11.5px;padding:4px 10px;background:#F3F4F6;border:1px solid #E5E7EB;border-radius:6px;cursor:pointer;color:#374151">${v}</button>`
+  ).join('');
+}
+
+/* ── 합의자 행 추가 ── */
+function admApvAddStep(userId, role) {
+  const container = document.getElementById('apvStepsWrap');
+  if (!container) return;
+  const idx   = container.querySelectorAll('.apv-step-row').length;
+  const users = (typeof USERS_DB !== 'undefined' ? USERS_DB : []);
+
+  const opts = users
+    .filter(u => u.role !== 'admin')
+    .map(u => `<option value="${u.id}" ${u.id === userId ? 'selected' : ''}>
+      ${u.name} (${u.band} · ${u.position || '-'})
+    </option>`).join('');
+
+  const row = document.createElement('div');
+  row.className = 'apv-step-row';
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;background:#F8FAFF;border:1px solid #E8EEFF;border-radius:8px;padding:10px 12px';
+  row.innerHTML = `
+    <span style="width:22px;height:22px;background:#6366F1;color:#fff;border-radius:50%;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${idx+1}</span>
+    <select class="adm-input apv-user-sel" style="flex:1;font-size:13px">
+      <option value="">합의자 선택</option>${opts}
+    </select>
+    <input type="text" class="adm-input apv-role-inp" placeholder="역할명 (예: 파트장)" value="${role || ''}"
+      style="width:120px;font-size:12px">
+    <button onclick="this.closest('.apv-step-row').remove();_admApvReindex()"
+      style="background:none;border:none;color:#EF4444;cursor:pointer;padding:4px;font-size:15px">
+      <i class="fas fa-times-circle"></i>
+    </button>`;
+  container.appendChild(row);
+}
+
+function _admApvReindex() {
+  const rows = document.querySelectorAll('#apvStepsWrap .apv-step-row');
+  rows.forEach((row, i) => {
+    const num = row.querySelector('span');
+    if (num) num.textContent = i + 1;
+  });
+}
+
+/* ── 폼 열기 (신규/수정) ── */
+function admApvShowForm(id) {
+  const title = document.getElementById('apvFormTitle');
+  const editId = document.getElementById('apvEditId');
+  const container = document.getElementById('apvStepsWrap');
+  if (!container) return;
+
+  // 폼 초기화
+  admApvReset();
+
+  if (!id) {
+    // 신규
+    if (title) title.innerHTML = '<i class="fas fa-plus-circle" style="margin-right:6px"></i> 새 합의라인 추가';
+    if (editId) editId.value = '';
+    admApvAddStep(); // 기본 1행
+    return;
+  }
+
+  // 수정
+  const line = (IDP_CUSTOM_APPROVAL_LINES || []).find(l => l.id === id);
+  if (!line) return;
+
+  if (title) title.innerHTML = '<i class="fas fa-pen" style="margin-right:6px;color:#F59E0B"></i> 합의라인 수정';
+  if (editId) editId.value = id;
+
+  const orgTypeEl = document.getElementById('apvOrgType');
+  const orgUnitEl = document.getElementById('apvOrgUnit');
+  if (orgTypeEl) orgTypeEl.value = line.orgType || 'all';
+  admApvOrgTypeChange();
+  if (orgUnitEl) orgUnitEl.value = line.orgUnit || '';
+
+  (line.steps || []).forEach(s => admApvAddStep(s.userId, s.role));
+
+  // 폼 카드로 스크롤
+  document.getElementById('apvFormCard')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/* ── 폼 초기화 ── */
+function admApvReset() {
+  const editId = document.getElementById('apvEditId');
+  const orgType = document.getElementById('apvOrgType');
+  const orgUnit = document.getElementById('apvOrgUnit');
+  const container = document.getElementById('apvStepsWrap');
+  const title = document.getElementById('apvFormTitle');
+  const rebuildLog = document.getElementById('apvRebuildLog');
+  if (editId)  editId.value  = '';
+  if (orgType) orgType.value = 'all';
+  if (orgUnit) { orgUnit.value = ''; orgUnit.disabled = true; orgUnit.placeholder = '전체 적용 (입력 불필요)'; }
+  if (container) container.innerHTML = '';
+  if (title) title.innerHTML = '<i class="fas fa-plus-circle" style="margin-right:6px"></i> 새 합의라인 추가';
+  if (rebuildLog) rebuildLog.style.display = 'none';
+  const presets = document.getElementById('apvOrgPresets');
+  if (presets) presets.innerHTML = '';
+}
+
+/* ── 저장 ── */
+function admApvSave() {
+  const orgType    = document.getElementById('apvOrgType')?.value || 'all';
+  const orgUnitRaw = document.getElementById('apvOrgUnit')?.value?.trim() || '';
+  const orgUnit    = orgType === 'all' ? '(전체)' : orgUnitRaw;
+  const editId     = document.getElementById('apvEditId')?.value || '';
+  const container  = document.getElementById('apvStepsWrap');
+
+  if (orgType !== 'all' && !orgUnit) {
+    admShowToast('⚠️ 조직명을 입력하거나 버튼으로 선택하세요.'); return;
+  }
+
+  // 단계 수집
+  const steps = [];
+  container?.querySelectorAll('.apv-step-row').forEach((row, i) => {
+    const uid  = row.querySelector('.apv-user-sel')?.value;
+    const role = row.querySelector('.apv-role-inp')?.value?.trim() || '';
+    if (!uid) return;
+    const user = (typeof USERS_DB !== 'undefined' ? USERS_DB : []).find(u => u.id === uid);
+    steps.push({ order: i+1, userId: uid, name: user?.name || uid, role: role || user?.position || '' });
+  });
+
+  if (steps.length === 0) { admShowToast('⚠️ 합의자를 1명 이상 추가하세요.'); return; }
+
+  const now = new Date().toISOString().slice(0,10);
+
+  if (editId) {
+    const idx = (IDP_CUSTOM_APPROVAL_LINES || []).findIndex(l => l.id === editId);
+    if (idx !== -1) {
+      IDP_CUSTOM_APPROVAL_LINES[idx] = { ...IDP_CUSTOM_APPROVAL_LINES[idx], orgType, orgUnit, steps, updatedAt: now };
+    }
+  } else {
+    // 중복 체크 (같은 조직 유형+이름 이미 존재)
+    const dup = (IDP_CUSTOM_APPROVAL_LINES || []).find(l => l.orgType === orgType && l.orgUnit === orgUnit);
+    if (dup) {
+      if (!confirm(`"${orgUnit}" (${orgType}) 합의라인이 이미 있습니다. 덮어쓰시겠습니까?`)) return;
+      const idx = IDP_CUSTOM_APPROVAL_LINES.indexOf(dup);
+      IDP_CUSTOM_APPROVAL_LINES[idx] = { ...dup, steps, updatedAt: now };
+    } else {
+      IDP_CUSTOM_APPROVAL_LINES.push({ id: 'cal-' + Date.now(), orgType, orgUnit, steps, updatedAt: now });
+    }
+  }
+
+  _apvSaveStorage();
+  admApvRenderList();
+  admApvReset();
+  admShowToast('✅ 합의라인이 저장되었습니다.');
+}
+
+/* ── 삭제 ── */
+function admApvDelete(id) {
+  const line = (IDP_CUSTOM_APPROVAL_LINES || []).find(l => l.id === id);
+  if (!line) return;
+  if (!confirm(`"${line.orgUnit || '(전체)'}" 합의라인을 삭제하시겠습니까?`)) return;
+  const idx = IDP_CUSTOM_APPROVAL_LINES.findIndex(l => l.id === id);
+  if (idx !== -1) IDP_CUSTOM_APPROVAL_LINES.splice(idx, 1);
+  _apvSaveStorage();
+  admApvRenderList();
+  admShowToast('🗑️ 삭제되었습니다.');
+}
+
+/* ── 기존 IDP 합의라인 일괄 재생성 (admin.js 독립 구현 — app.js 불필요) ── */
+function admApvRebuildAll() {
+  if (!confirm(
+    '현재 "합의 요청" / "합의 진행중" 상태의 모든 IDP 합의라인을\n' +
+    '위에서 설정한 최신 규칙으로 강제 재생성합니다.\n\n' +
+    '이미 승인·반려된 내역은 초기화됩니다. 계속하시겠습니까?'
+  )) return;
+
+  const list     = (typeof IDP_LIST !== 'undefined') ? IDP_LIST : [];
+  const users    = (typeof USERS_DB !== 'undefined') ? USERS_DB : [];
+  const allLines = IDP_CUSTOM_APPROVAL_LINES || [];
+  const posIcons = { '파트장':'👤','팀장':'🏢','사업부장':'🏛️','본부장':'🏛️','매니저':'👤','HR매니저':'👤' };
+
+  // 합의라인 생성 (커스텀 우선 → 밴드 자동)
+  function _buildLine(user) {
+    if (!user) return [];
+    const myId = user.id, myBand = user.band||'', myPart = user.part||'',
+          myDept = user.dept||'', myBizUnit = user.bizUnit||'';
+    // 커스텀 라인 (파트>팀>사업부>전체)
+    for (const ptype of ['part','team','bizUnit','all']) {
+      const m = allLines.find(l => {
+        if (l.orgType !== ptype) return false;
+        if (ptype==='all') return true;
+        return l.orgUnit === (ptype==='part' ? myPart : ptype==='team' ? myDept : myBizUnit);
+      });
+      if (m && (m.steps||[]).length > 0) {
+        return m.steps.map(s => ({ userId:s.userId,name:s.name,title:s.name,role:s.role,status:'waiting',date:null,comment:'' }));
+      }
+    }
+    // 밴드 자동
+    const toStep = (u,role) => ({ role,title:u.position,name:u.name,userId:u.id,icon:posIcons[u.position]||'👤',status:'waiting',date:null,comment:'' });
+    const hasPos = (u,...kw) => kw.some(k=>(u.position||'').includes(k));
+    const findFirst = cond => users.find(u=>u.id!==myId&&cond(u))||null;
+    const line=[];
+    if (myBand==='C1'||myBand==='C2'||(myBand==='C3'&&!hasPos(user,'파트장'))) {
+      const p=findFirst(u=>u.band==='C3'&&hasPos(u,'파트장')&&u.dept===myDept&&(myPart?u.part===myPart:true));
+      const t=findFirst(u=>u.band==='C4'&&hasPos(u,'팀장')&&u.dept===myDept);
+      if(p) line.push(toStep(p,'중간합의')); if(t) line.push(toStep(t,'최종합의'));
+    } else if (myBand==='C3'&&hasPos(user,'파트장')) {
+      const t=findFirst(u=>u.band==='C4'&&hasPos(u,'팀장')&&u.dept===myDept);
+      const b=findFirst(u=>u.band==='C4'&&hasPos(u,'사업부장')&&u.bizUnit===myBizUnit);
+      if(t) line.push(toStep(t,'중간합의')); if(b) line.push(toStep(b,'최종합의'));
+    } else if (myBand==='C4'&&hasPos(user,'팀장')) {
+      const b=findFirst(u=>u.band==='C4'&&hasPos(u,'사업부장')&&u.bizUnit===myBizUnit);
+      const h=findFirst(u=>u.band==='C4'&&hasPos(u,'본부장')&&(u.bizUnit===myBizUnit||!u.bizUnit));
+      if(b) line.push(toStep(b,'중간합의')); if(h) line.push(toStep(h,'최종합의'));
+    }
+    return line;
+  }
+
+  let repaired = 0;
+  list.forEach(idp => {
+    if (idp.status!=='pending-approval' && idp.status!=='mid-approved') return;
+    const submitter = users.find(u=>u.id===idp.userId);
+    if (!submitter) return;
+    const newLine = _buildLine(submitter);
+    if (newLine.length > 0) {
+      idp.approvalLine = newLine;
+      repaired++;
+      console.log('[AdmRebuild]', idp.id, '|', newLine.map(s=>s.name+'('+s.role+')').join(' → '));
+    }
+  });
+
+  if (repaired > 0) {
+    if (typeof saveAllDataAsync==='function') saveAllDataAsync();
+    else if (typeof saveAllData==='function') saveAllData();
+  }
+
+  const log = document.getElementById('apvRebuildLog');
+  if (log) {
+    log.style.display = 'block';
+    log.innerHTML = repaired > 0
+      ? `✅ ${repaired}건 재생성 완료. Firebase 저장 중...`
+      : '✅ 재생성 대상 없음 (합의 요청·진행중 IDP 없음)';
+  }
+  if (repaired > 0) {
+    admShowToast(`✅ ${repaired}건 합의라인 재생성! 3초 후 새로고침`);
+    setTimeout(()=>window.location.reload(),3000);
+  } else {
+    admShowToast('재생성 대상 없음');
+  }
 }
 
 function admShowToast(msg) {
