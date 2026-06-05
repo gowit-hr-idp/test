@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IDP 운영 시스템 | 2026</title>
+  <!-- ① 즉시 인증 체크: 세션 없으면 CDN 로딩 전에 즉시 login.html로 이동 -->
+  <script>
+    (function() {
+      try {
+        var sess = sessionStorage.getItem('idp_user');
+        if (!sess) { window.location.replace('login.html'); throw 'redirect'; }
+        var u = JSON.parse(sess);
+        if (!u || !u.id) { sessionStorage.removeItem('idp_user'); window.location.replace('login.html'); throw 'redirect'; }
+        if (u.role === 'admin') { window.location.replace('admin.html'); throw 'redirect'; }
+      } catch(e) {
+        if (e === 'redirect') { document.documentElement.style.display = 'none'; }
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
+  <style>
+    /* 인증 확인 전 화면 깜빡임 방지 */
+    body { visibility: hidden; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <span class="logo-icon"><i class="fas fa-brain"></i></span>
+      <span class="logo-text">IDP 시스템</span>
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+  </div>
+  <div class="user-profile">
+    <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
+    <div class="user-info">
+      <span class="user-name" id="sidebarUserName">로딩 중...</span>
+      <span class="user-role" id="sidebarUserRole"></span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <ul>
+      <li class="nav-item active" data-page="dashboard"><a href="#"><i class="fas fa-home"></i><span>홈 대시보드</span></a></li>
+      <li class="nav-item" data-page="competency-dict"><a href="#"><i class="fas fa-book-open"></i><span>역량사전</span></a></li>
+      <li class="nav-item" data-page="comp-assess"><a href="#"><i class="fas fa-clipboard-list"></i><span>역량수준 진단</span></a></li>
+      <li class="nav-item" data-page="idp-write"><a href="#"><i class="fas fa-pen-to-square"></i><span>IDP 작성</span></a></li>
+
+      <!-- IDP 현황 그룹 -->
+      <li class="nav-group" id="navGroupIdp">
+        <button class="nav-group-header" onclick="toggleNavGroup('navGroupIdp')">
+          <i class="fas fa-list-check group-icon"></i>
+          <span class="group-label">IDP 현황</span>
+          <i class="fas fa-chevron-right nav-arrow"></i>
+        </button>
+        <ul class="nav-submenu">
+          <li class="nav-item" data-page="idp-list">
+            <a href="#"><i class="fas fa-user"></i><span>내 IDP 현황</span></a>
+          </li>
+          <li class="nav-item nav-item-member-idp" data-page="member-idp-list" style="display:none">
+            <a href="#"><i class="fas fa-users"></i><span>구성원 IDP 현황</span></a>
+          </li>
+        </ul>
+      </li>
+
+      <li class="nav-item nav-item-approval" data-page="idp-approval" style="display:none"><a href="#"><i class="fas fa-handshake"></i><span>IDP 합의</span></a></li>
+      <li class="nav-item nav-item-comp-target" data-page="comp-target-mgmt" style="display:none"><a href="#"><i class="fas fa-bullseye"></i><span>역량 목표 관리</span></a></li>
+
+      <!-- 실행 피드백 그룹 -->
+      <li class="nav-group" id="navGroupFeedback">
+        <button class="nav-group-header" onclick="toggleNavGroup('navGroupFeedback')">
+          <i class="fas fa-comments group-icon"></i>
+          <span class="group-label">실행 피드백</span>
+          <i class="fas fa-chevron-right nav-arrow"></i>
+        </button>
+        <ul class="nav-submenu">
+          <li class="nav-item" data-page="my-feedback">
+            <a href="#"><i class="fas fa-user"></i><span>내 실행 피드백</span></a>
+          </li>
+          <li class="nav-item nav-item-member-feedback" data-page="member-feedback" style="display:none">
+            <a href="#"><i class="fas fa-users"></i><span>구성원 실행 피드백</span></a>
+          </li>
+        </ul>
+      </li>
+
+      <li class="nav-item nav-item-upper-eval" data-page="upper-band-eval" style="display:none"><a href="#"><i class="fas fa-star-half-alt"></i><span>역량개발 평가</span></a></li>
+
+      <!-- 1on1 관리 그룹 -->
+      <li class="nav-group" id="navGroup1on1">
+        <button class="nav-group-header" onclick="toggleNavGroup('navGroup1on1')">
+          <i class="fas fa-handshake group-icon"></i>
+          <span class="group-label">1on1 관리</span>
+          <i class="fas fa-chevron-right nav-arrow"></i>
+        </button>
+        <ul class="nav-submenu">
+          <li class="nav-item" data-page="oo1-dashboard">
+            <a href="#"><i class="fas fa-chart-pie"></i><span>1on1 현황 통계</span></a>
+          </li>
+          <li class="nav-item" data-page="oo1-schedule">
+            <a href="#"><i class="fas fa-calendar-plus"></i><span>정기 일정 관리</span></a>
+          </li>
+        </ul>
+      </li>
+
+      <li class="nav-item" data-page="analytics"><a href="#"><i class="fas fa-chart-bar"></i><span>결과 분석</span></a></li>
+      <li class="nav-item" data-page="settings"><a href="#"><i class="fas fa-gear"></i><span>설정</span></a></li>
+    </ul>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="cycle-badge"><i class="fas fa-calendar-check"></i><span id="mainCycleBadgeText">2026 Q1 운영 사이클</span></div>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<main class="main-content" id="mainContent">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="menu-btn" id="menuBtn"><i class="fas fa-bars"></i></button>
+      <div class="breadcrumb" id="breadcrumb">홈 대시보드</div>
+    </div>
+    <div class="topbar-right">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" placeholder="역량, IDP 검색..." id="globalSearch" />
+      </div>
+      <div class="topbar-icons">
+        <!-- 알림 버튼 + 드롭다운 -->
+        <div class="notif-wrap" id="notifWrap">
+          <button class="icon-btn" id="notifBellBtn" title="알림" onclick="toggleNotifDropdown()">
+            <i class="fas fa-bell"></i>
+            <span class="badge" id="notifBadge" style="display:none">0</span>
+          </button>
+          <div class="notif-dropdown" id="notifDropdown" style="display:none">
+            <div class="notif-header">
+              <span class="notif-title"><i class="fas fa-bell"></i> 알림</span>
+              <button class="notif-read-all" onclick="markAllNotifRead()">모두 읽음</button>
+            </div>
+            <div class="notif-list" id="notifList">
+              <div class="notif-empty">새 알림이 없습니다.</div>
+            </div>
+          </div>
+        </div>
+        <button class="icon-btn" title="도움말"><i class="fas fa-circle-question"></i></button>
+        <button class="icon-btn" onclick="doLogout()" title="로그아웃"><i class="fas fa-right-from-bracket"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================== 홈 대시보드 ======================== -->
+  <section class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div><h1>홈 대시보드</h1><p>나의 IDP 현황과 역량 개발 진행 상태를 한눈에 확인하세요.</p></div>
+      <!-- C4 팀장/사업부장 전용 역량 목표 설정 버튼 (JS로 표시/숨김 제어) -->
+      <button class="btn-primary" id="compTargetSetBtn" style="display:none" onclick="openCompTargetModal()">
+        <i class="fas fa-bullseye"></i> 역량 목표 설정
+      </button>
+    </div>
+    <!-- 요약 카드 (클릭 시 페이지 이동) -->
+    <div class="summary-cards">
+      <div class="card stat-card clickable" onclick="navigateTo('idp-list')" title="IDP 현황 바로가기">
+        <div class="stat-icon blue"><i class="fas fa-bullseye"></i></div>
+        <div class="stat-body"><div class="stat-value" id="dash-idp-count">0</div><div class="stat-label">진행 중인 IDP</div></div>
+        <div class="stat-footer blue">IDP 현황 <i class="fas fa-arrow-right" style="margin-left:4px;font-size:10px"></i></div>
+      </div>
+      <div class="card stat-card clickable" onclick="navigateTo('analytics')" title="결과 분석 바로가기">
+        <div class="stat-icon green"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-body"><div class="stat-value" id="dash-avg-progress">0%</div><div class="stat-label">평균 달성률</div></div>
+        <div class="stat-footer green">결과 분석 <i class="fas fa-arrow-right" style="margin-left:4px;font-size:10px"></i></div>
+      </div>
+      <div class="card stat-card clickable" onclick="navigateTo('oo1-dashboard')" title="1on1 현황 통계 바로가기">
+        <div class="stat-icon orange"><i class="fas fa-comments"></i></div>
+        <div class="stat-body"><div class="stat-value" id="dash-1on1-count">0회</div><div class="stat-label">1on1 횟수</div></div>
+        <div class="stat-footer orange">1on1 현황 통계 <i class="fas fa-arrow-right" style="margin-left:4px;font-size:10px"></i></div>
+      </div>
+      <div class="card stat-card clickable" onclick="navigateTo('my-feedback')" title="평가 현황 바로가기">
+        <div class="stat-icon purple"><i class="fas fa-star"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" style="font-size:13px;display:flex;align-items:center;gap:4px">
+            <span style="color:var(--text-secondary);font-size:11px">중간</span>
+            <i class="fas fa-arrow-right" style="font-size:10px;color:var(--primary)"></i>
+            <span style="color:var(--primary);font-weight:800">기말</span>
+            <i class="fas fa-arrow-right" style="font-size:10px;color:var(--text-secondary)"></i>
+            <span style="color:var(--text-secondary);font-size:11px">최종</span>
+          </div>
+          <div class="stat-label">평가 상태</div>
+        </div>
+        <div class="stat-footer purple">평가 현황 <i class="fas fa-arrow-right" style="margin-left:4px;font-size:10px"></i></div>
+      </div>
+    </div>
+    <div class="dashboard-grid">
+
+      <!-- ▼ 1행: IDP 실행 현황 + 역량 분포 (2컬럼) ▼ -->
+      <div class="card dash-card">
+        <div class="card-header">
+          <h3><i class="fas fa-tasks"></i> IDP 실행 현황</h3>
+          <button class="btn-sm" onclick="navigateTo('idp-list')">전체보기</button>
+        </div>
+        <div class="idp-progress-list" id="dashIdpList"></div>
+      </div>
+
+      <!-- 역량 분포 통합 카드 (직무 + 리더십 동시 표시) -->
+      <div class="card dash-card">
+        <div class="card-header">
+          <h3><i class="fas fa-chart-radar"></i> 역량 분포 현황</h3>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <span class="radar-legend"><span class="legend-dot" style="background:rgba(79,110,247,0.85)"></span>목표수준</span>
+            <span class="radar-legend"><span class="legend-dot" style="background:rgba(16,185,129,0.8)"></span>내 현재수준</span>
+            <span class="radar-legend"><span class="legend-dot" style="background:rgba(239,68,68,0.75)"></span>조직 목표</span>
+          </div>
+        </div>
+        <!-- 직무역량 + 리더십역량 2개 차트 동시 표시 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+          <!-- 직무역량 차트 -->
+          <div id="dashRadarJobPanel">
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;padding-bottom:5px;border-bottom:2px solid #EEF2FF">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:#EEF2FF">
+                <i class="fas fa-briefcase" style="font-size:10px;color:#4F46E5"></i>
+              </span>
+              <span style="font-size:12px;font-weight:700;color:#4F46E5">직무역량</span>
+              <span style="font-size:10px;color:var(--text-secondary);margin-left:auto" id="radarOrgName">소속 조직 기준</span>
+            </div>
+            <div style="position:relative;height:180px"><canvas id="radarChart"></canvas></div>
+          </div>
+          <!-- 리더십역량 차트 -->
+          <div id="dashRadarLeadPanel">
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;padding-bottom:5px;border-bottom:2px solid #F3E8FF">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:#F3E8FF">
+                <i class="fas fa-crown" style="font-size:10px;color:#7C3AED"></i>
+              </span>
+              <span style="font-size:12px;font-weight:700;color:#7C3AED">리더십역량</span>
+              <span style="font-size:10px;color:var(--text-secondary);margin-left:auto" id="leaderRadarOrgName">밴드 기준</span>
+            </div>
+            <div style="position:relative;height:180px"><canvas id="leaderRadarChart"></canvas></div>
+          </div>
+        </div>
+        <!-- 숨겨진 레전드 요소 (기존 JS 호환) -->
+        <span id="radarLegendTeam" style="display:none">팀 목표</span>
+        <span id="radarLegendBiz" style="display:none">사업부 목표</span>
+        <span id="leaderRadarLegendTeam" style="display:none">팀 목표</span>
+        <span id="leaderRadarLegendBiz" style="display:none">사업부 목표</span>
+      </div>
+
+      <!-- ▼ 2행: 타임라인 + 최근 피드백 (2컬럼) ▼ -->
+      <div class="card dash-card">
+        <div class="card-header">
+          <h3><i class="fas fa-calendar-alt"></i> <span id="dashTimelineTitle">2026 역량 개발 사이클 타임라인</span></h3>
+          <span class="tag green" id="dashTimelineStatus" style="display:none">진행중</span>
+        </div>
+        <div class="timeline-container" id="cycleTimeline"></div>
+      </div>
+
+      <!-- 최근 피드백 -->
+      <div class="card dash-card">
+        <div class="card-header">
+          <h3><i class="fas fa-comment-dots"></i> 최근 피드백</h3>
+          <button class="btn-sm" onclick="event.stopPropagation();navigateTo('my-feedback')">전체보기</button>
+        </div>
+        <div class="feedback-list" id="dashFeedbackList"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================== 역량사전 ======================== -->
+  <section class="page" id="page-competency-dict">
+    <div class="page-header">
+      <div>
+        <h1>역량사전</h1>
+        <p>직무역량 7개(전 밴드 공통)와 리더십역량 C4·C3·C2·C1 체계를 확인하세요.</p>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all">전체</button>
+        <button class="filter-tab" data-filter="job"><i class="fas fa-briefcase" style="font-size:11px"></i> 직무역량</button>
+        <button class="filter-tab" data-filter="leadership"><i class="fas fa-crown" style="font-size:11px"></i> 리더십역량</button>
+      </div>
+      <div class="filter-tabs" style="margin-left:8px">
+        <button class="filter-tab lead-band-filter" data-band="C4" onclick="filterByBand('C4')" style="font-size:11px">C4</button>
+        <button class="filter-tab lead-band-filter" data-band="C3" onclick="filterByBand('C3')" style="font-size:11px">C3</button>
+        <button class="filter-tab lead-band-filter" data-band="C2" onclick="filterByBand('C2')" style="font-size:11px">C2</button>
+        <button class="filter-tab lead-band-filter" data-band="C1" onclick="filterByBand('C1')" style="font-size:11px">C1</button>
+      </div>
+      <div class="search-inline">
+        <i class="fas fa-search"></i>
+        <input type="text" placeholder="역량명 검색..." id="compSearch" oninput="filterCompetencies()" />
+      </div>
+    </div>
+    <div class="competency-grid" id="competencyGrid"></div>
+    <!-- Competency Detail Modal -->
+    <div class="modal-overlay" id="compModal" onclick="if(event.target===this)closeModal('compModal')">
+      <div class="modal">
+        <div class="modal-header" id="compModalHeader">
+          <h2 id="compModalTitle">역량 상세</h2>
+          <button class="modal-close" onclick="closeModal('compModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="compModalBody"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 역량수준 진단 ======================== -->
+  <section class="page" id="page-comp-assess">
+    <div class="page-header">
+      <div><h1>역량수준 진단</h1><p>현재 나의 역량 수준을 진단하고 AI 분석을 통해 개발 우선순위를 파악하세요.</p></div>
+    </div>
+
+    <!-- 탭 메뉴 -->
+    <div class="assess-tab-bar">
+      <button class="assess-tab active" id="assessTabNew" onclick="switchAssessTab('new')">
+        <i class="fas fa-plus-circle"></i> 새 진단
+      </button>
+      <button class="assess-tab" id="assessTabHistory" onclick="switchAssessTab('history')">
+        <i class="fas fa-history"></i> 진단 이력
+        <span class="assess-history-count" id="assessHistoryCount" style="display:none">0</span>
+      </button>
+    </div>
+
+    <!-- 새 진단 패널 -->
+    <div id="assessPanelNew">
+      <div class="assess-step-indicator" id="assessStepIndicator">
+        <div class="assess-step active" data-astep="1"><div class="assess-step-circle">1</div><div class="assess-step-label">현재수준 진단</div></div>
+        <div class="assess-step-line"></div>
+        <div class="assess-step" data-astep="2"><div class="assess-step-circle">2</div><div class="assess-step-label">차이 분석 결과</div></div>
+        <div class="assess-step-line"></div>
+        <div class="assess-step" data-astep="3"><div class="assess-step-circle">3</div><div class="assess-step-label">AI 추천 역량</div></div>
+      </div>
+      <div id="assessContent"></div>
+      <div class="step-nav" id="assessNav">
+        <button class="btn-outline" id="assessPrevBtn" onclick="assessPrevStep()" style="display:none"><i class="fas fa-arrow-left"></i> 이전</button>
+        <button class="btn-primary" id="assessNextBtn" onclick="assessNextStep()">다음 <i class="fas fa-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- 진단 이력 패널 -->
+    <div id="assessPanelHistory" style="display:none">
+      <div id="diagHistoryContent"></div>
+    </div>
+
+  </section>
+
+  <!-- ======================== IDP 작성 ======================== -->
+  <section class="page" id="page-idp-write">
+    <div class="page-header">
+      <div>
+        <h1>IDP 작성</h1>
+        <p>역량 진단 결과를 바탕으로 개인 개발 계획을 수립하세요.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn-outline" style="font-size:12px" onclick="typeof openIDPTemplateModal==='function'&&openIDPTemplateModal()">
+          <i class="fas fa-magic"></i> 템플릿 활용
+        </button>
+        <span id="idpDraftStatus" style="font-size:11px;color:var(--text-light);transition:opacity 0.3s"></span>
+      </div>
+    </div>
+
+    <!-- 임시저장 복원 배너 (임시저장이 있을 때만 표시) -->
+    <div id="idpDraftBanner" style="display:none;align-items:center;gap:12px;padding:12px 16px;background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:10px;margin-bottom:16px">
+      <i class="fas fa-clock" style="color:#F59E0B;font-size:16px;flex-shrink:0"></i>
+      <div style="flex:1">
+        <span style="font-size:13px;font-weight:600;color:#92400E">임시 저장된 IDP 작성 내용이 있습니다</span>
+        <span id="draftSavedAt" style="font-size:11px;color:#B45309;margin-left:8px"></span>
+      </div>
+      <button class="btn-primary" style="padding:5px 14px;font-size:12px" onclick="typeof restoreDraft==='function'&&restoreDraft()">
+        <i class="fas fa-undo"></i> 이어서 작성
+      </button>
+      <button class="btn-outline" style="padding:5px 12px;font-size:12px" onclick="typeof dismissDraft==='function'&&dismissDraft()">무시</button>
+    </div>
+    <div class="step-indicator">
+      <div class="step active" data-step="1"><div class="step-circle">1</div><div class="step-label">목표수준 설정</div></div>
+      <div class="step-line"></div>
+      <div class="step" data-step="2"><div class="step-circle">2</div><div class="step-label">개발목표 정의</div></div>
+      <div class="step-line"></div>
+      <div class="step" data-step="3"><div class="step-circle">3</div><div class="step-label">실행계획 수립</div></div>
+      <div class="step-line"></div>
+      <div class="step" data-step="4"><div class="step-circle">4</div><div class="step-label">최종 검토·제출</div></div>
+    </div>
+    <div class="step-content" id="stepContent"></div>
+    <div class="step-nav">
+      <button class="btn-outline" id="prevStepBtn" onclick="prevStep()" style="display:none"><i class="fas fa-arrow-left"></i> 이전</button>
+      <button class="btn-primary" id="nextStepBtn" onclick="nextStep()">다음 <i class="fas fa-arrow-right"></i></button>
+    </div>
+  </section>
+
+  <!-- ======================== IDP 현황 ======================== -->
+  <section class="page" id="page-idp-list">
+    <div class="page-header">
+      <div>
+        <h1><i class="fas fa-list-check" style="color:var(--primary);margin-right:8px"></i>내 IDP 현황</h1>
+        <p>내가 작성한 IDP 목록과 실행 상태를 관리하세요.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-outline" onclick="typeof openIDPTemplateModal==='function'&&openIDPTemplateModal()" style="font-size:12px">
+          <i class="fas fa-magic"></i> 템플릿으로 시작
+        </button>
+        <button class="btn-primary" onclick="navigateTo('idp-write')"><i class="fas fa-plus"></i> 새 IDP 작성</button>
+      </div>
+    </div>
+    <!-- 사이클 필터 (다중 연도 시 자동 표시) -->
+    <div id="idpCycleFilterWrap" style="display:none;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:10px 14px;background:var(--bg);border-radius:8px;border:1px solid var(--border)"></div>
+    <div class="filter-bar">
+      <div class="filter-tabs" id="myIdpFilterTabs">
+        <button class="filter-tab active" data-filter="all">전체</button>
+        <button class="filter-tab" data-filter="in-progress">진행중</button>
+        <button class="filter-tab" data-filter="approved">합의완료</button>
+        <button class="filter-tab" data-filter="pending-approval">합의대기</button>
+        <button class="filter-tab" data-filter="completed">완료</button>
+        <button class="filter-tab" data-filter="pending">미시작</button>
+      </div>
+    </div>
+    <div class="idp-table-wrap">
+      <table class="data-table" id="idpTable">
+        <thead><tr><th>역량 구분</th><th>역량명</th><th>현재수준</th><th>목표수준</th><th>개발목표</th><th>실행기간</th><th>진행률</th><th>상태</th><th>공개</th><th>액션</th></tr></thead>
+        <tbody id="idpTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================== 구성원 IDP 현황 (C3 파트장 이상 전용) ======================== -->
+  <section class="page" id="page-member-idp-list">
+    <div class="page-header">
+      <div>
+        <h1><i class="fas fa-users" style="color:var(--primary);margin-right:8px"></i>구성원 IDP 현황</h1>
+        <p id="memberIdpPageDesc">파트·팀 구성원의 IDP 작성 및 실행 현황을 확인합니다.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="memberIdpScopeLabel" style="font-size:12px;color:var(--text-secondary);background:var(--bg);padding:4px 10px;border-radius:6px"></span>
+      </div>
+    </div>
+
+    <!-- 필터 바 -->
+    <div class="filter-bar" style="margin-bottom:16px">
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all" onclick="filterMemberIdpTable('all',this)">전체</button>
+        <button class="filter-tab" data-filter="in-progress" onclick="filterMemberIdpTable('in-progress',this)">진행중</button>
+        <button class="filter-tab" data-filter="completed" onclick="filterMemberIdpTable('completed',this)">완료</button>
+        <button class="filter-tab" data-filter="pending-approval" onclick="filterMemberIdpTable('pending-approval',this)">합의대기</button>
+        <button class="filter-tab" data-filter="approved" onclick="filterMemberIdpTable('approved',this)">합의완료</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+        <select class="form-control-sm" id="memberIdpMemberFilter" onchange="filterMemberIdpByUser(this.value)" style="min-width:130px">
+          <option value="">전체 구성원</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 요약 카드 -->
+    <div class="summary-cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+      <div class="card stat-card">
+        <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" id="memberIdpStatMembers">0</div>
+          <div class="stat-label">구성원 수</div>
+        </div>
+        <div class="stat-footer blue" id="memberIdpStatMembersSub">IDP 보유 구성원</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon green"><i class="fas fa-file-alt"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" id="memberIdpStatTotal">0</div>
+          <div class="stat-label">전체 IDP</div>
+        </div>
+        <div class="stat-footer green" id="memberIdpStatTotalSub">합계</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon orange"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" id="memberIdpStatAvgProg">0%</div>
+          <div class="stat-label">평균 진행률</div>
+        </div>
+        <div class="stat-footer orange">팀 전체 기준</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon purple"><i class="fas fa-clock"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" id="memberIdpStatPending">0</div>
+          <div class="stat-label">합의 대기</div>
+        </div>
+        <div class="stat-footer purple">승인 필요</div>
+      </div>
+    </div>
+
+    <!-- IDP 테이블 -->
+    <div class="card">
+      <div class="idp-table-wrap">
+        <table class="data-table" id="memberIdpTable">
+          <thead>
+            <tr>
+              <th>구성원</th>
+              <th>역량 구분</th>
+              <th>역량명</th>
+              <th>현재수준</th>
+              <th>목표수준</th>
+              <th>개발목표</th>
+              <th>실행기간</th>
+              <th>진행률</th>
+              <th>상태</th>
+              <th>액션</th>
+            </tr>
+          </thead>
+          <tbody id="memberIdpTableBody">
+            <tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-light)"><i class="fas fa-spinner fa-spin"></i> 로딩 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== IDP 합의 (C3/C4 관리자 전용) ======================== -->
+  <section class="page" id="page-idp-approval">
+    <div class="page-header">
+      <div>
+        <h1><i class="fas fa-handshake" style="color:var(--primary);margin-right:8px"></i>IDP 합의</h1>
+        <p id="approvalPageDesc">소속 직원의 IDP 제출 내역을 검토하고 합의 처리합니다.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="form-control-sm" id="approvalStatusFilter" onchange="filterApprovalList(this.value)" style="min-width:130px">
+          <option value="all">전체 상태</option>
+          <option value="waiting">합의 대기</option>
+          <option value="approved">합의 완료</option>
+          <option value="rejected">반려</option>
+        </select>
+        <!-- HR 관리자 전용 커스텀 합의 라인 설정 버튼 -->
+        <button id="customApvLineBtn" class="btn-outline" style="font-size:12px;display:none"
+          onclick="typeof openCustomApprovalLineModal==='function'&&openCustomApprovalLineModal()">
+          <i class="fas fa-sitemap"></i> 합의 라인 설정
+        </button>
+      </div>
+    </div>
+
+    <!-- 합의 요약 카드 -->
+    <div class="approval-summary-cards" id="approvalSummaryCards">
+      <div class="apv-stat-card apv-stat-waiting">
+        <div class="apv-stat-icon"><i class="fas fa-clock"></i></div>
+        <div class="apv-stat-body">
+          <div class="apv-stat-value" id="apvCount-waiting">0</div>
+          <div class="apv-stat-label">합의 대기</div>
+        </div>
+      </div>
+      <div class="apv-stat-card apv-stat-approved">
+        <div class="apv-stat-icon"><i class="fas fa-check-circle"></i></div>
+        <div class="apv-stat-body">
+          <div class="apv-stat-value" id="apvCount-approved">0</div>
+          <div class="apv-stat-label">합의 완료</div>
+        </div>
+      </div>
+      <div class="apv-stat-card apv-stat-rejected">
+        <div class="apv-stat-icon"><i class="fas fa-times-circle"></i></div>
+        <div class="apv-stat-body">
+          <div class="apv-stat-value" id="apvCount-rejected">0</div>
+          <div class="apv-stat-label">반려</div>
+        </div>
+      </div>
+      <div class="apv-stat-card apv-stat-total">
+        <div class="apv-stat-icon"><i class="fas fa-file-lines"></i></div>
+        <div class="apv-stat-body">
+          <div class="apv-stat-value" id="apvCount-total">0</div>
+          <div class="apv-stat-label">전체</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 합의 대상 IDP 목록 -->
+    <div id="approvalListWrap"></div>
+  </section>
+
+  <!-- 합의/반려 모달 -->
+  <div class="modal-overlay" id="approvalModal" style="display:none">
+    <div class="modal" style="max-width:620px">
+      <div class="modal-header" style="background:var(--primary);color:#fff">
+        <h2 id="approvalModalTitle"><i class="fas fa-handshake"></i> IDP 합의 검토</h2>
+        <button class="modal-close" style="color:#fff" onclick="closeModal('approvalModal')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" id="approvalModalBody"></div>
+      <div class="modal-footer" style="gap:10px">
+        <button class="btn-danger" id="approvalRejectBtn" onclick="submitApprovalDecision('rejected')">
+          <i class="fas fa-times-circle"></i> 반려
+        </button>
+        <button class="btn-success" id="approvalApproveBtn" onclick="submitApprovalDecision('approved')">
+          <i class="fas fa-check-circle"></i> 합의
+        </button>
+        <button class="btn-outline" onclick="closeModal('approvalModal')">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== 내 실행 피드백 ======================== -->
+  <section class="page" id="page-my-feedback">
+    <div class="page-header">
+      <div>
+        <h1>내 실행 피드백</h1>
+        <p>IDP 실행 기록, 증빙 자료, 1on1, 활동 평가를 통합 관리합니다.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-primary" style="padding:8px 16px;font-size:13px" onclick="openSelfFeedback()" id="fbWriteFeedbackBtn">
+          <i class="fas fa-pen-to-square"></i> 자기 피드백 작성
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== 대시보드 본문 ===== -->
+    <div id="fbDashboardPanel">
+
+    <!-- ━━━ ROW 1: 상단 요약 카드 4개 ━━━ -->
+    <div class="summary-cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+      <div class="card stat-card" style="cursor:pointer" onclick="document.getElementById('fbProgressCard')?.scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('fbProgressCard')?.classList.add('highlight-pulse');setTimeout(()=>document.getElementById('fbProgressCard')?.classList.remove('highlight-pulse'),1500)" title="클릭하면 달성률 입력 카드로 이동합니다">
+        <div class="stat-icon blue"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" id="fb-progress">0%</div>
+          <div class="stat-label">진행률</div>
+        </div>
+        <div class="stat-footer blue" style="display:flex;align-items:center;gap:4px">목표 달성 기준 <i class="fas fa-pencil-alt" style="font-size:9px;opacity:0.7"></i></div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" id="fb-tasks">0/0</div>
+          <div class="stat-label">완료 과제</div>
+        </div>
+        <div class="stat-footer green">실행 항목 기준</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon orange"><i class="fas fa-comments"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" id="fb-1on1-count">0회</div>
+          <div class="stat-label">1on1 미팅</div>
+        </div>
+        <div class="stat-footer orange" id="fb-1on1-date">-</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon purple"><i class="fas fa-award"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" style="font-size:12px;line-height:1.5">
+            <span class="eval-stage-pill" id="fb-stage-mid">중간</span>
+            <span class="eval-stage-pill" id="fb-stage-term">기말</span>
+            <span class="eval-stage-pill" id="fb-stage-final">최종</span>
+          </div>
+          <div class="stat-label">평가 상태</div>
+        </div>
+        <div class="stat-footer purple" id="fb-stage-desc">평가 대기</div>
+      </div>
+      <!-- 활동평가 점수 카드 (본인 뷰에서만 표시, hidden by default) -->
+      <div class="card stat-card" id="fbEvalScoreCard" style="display:none">
+        <div class="stat-icon" style="background:#FEF3C7"><i class="fas fa-star" style="color:#F59E0B"></i></div>
+        <div class="stat-body">
+          <div class="stat-value" id="fbEvalScoreVal" style="color:#F59E0B">-</div>
+          <div class="stat-label">활동평가 점수</div>
+        </div>
+        <div class="stat-footer" style="color:#F59E0B" id="fbEvalScoreDesc">평가 대기</div>
+      </div>
+    </div>
+
+    <!-- ━━━ ROW 2: IDP 선택 + 업무 적용 및 실행 증빙 (1:1 동일 폭) ━━━ -->
+    <div class="fb-row2-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+      <!-- IDP 선택 -->
+      <div class="card fb-card" id="fbApprovedIdpCard">
+        <div class="card-header">
+          <h3><i class="fas fa-list-ul" style="color:#10B981"></i> IDP 선택</h3>
+          <button class="btn-sm btn-outline-sm" onclick="navigateTo('idp-list')">IDP 현황</button>
+        </div>
+        <div id="fbSelectedIdpBanner" style="display:none;margin:0 0 8px 0;padding:10px 14px;background:linear-gradient(90deg,#EFF6FF,#F0FFF4);border-radius:8px;border-left:3px solid #10B981">
+          <div style="font-size:11px;color:#6B7280;margin-bottom:2px">현재 선택된 IDP</div>
+          <div id="fbSelectedIdpName" style="font-size:13px;font-weight:700;color:var(--text-primary)"></div>
+          <div id="fbSelectedIdpMeta" style="font-size:11px;color:var(--text-secondary);margin-top:2px"></div>
+        </div>
+        <div id="fbApprovedIdpList" style="padding:0">
+          <div style="padding:16px;text-align:center;color:var(--text-light);font-size:13px">
+            <i class="fas fa-spinner fa-spin"></i> 로딩 중...
+          </div>
+        </div>
+      </div>
+
+      <!-- 업무 적용 및 실행 증빙 -->
+      <div class="card fb-card">
+        <div class="card-header">
+          <h3><i class="fas fa-file-lines"></i> 업무 적용 및 실행 증빙</h3>
+          <button class="btn-primary" id="fbEvidenceUploadBtn" style="padding:6px 14px;font-size:12px" onclick="openEvidenceUpload()">
+            <i class="fas fa-upload"></i> 파일 업로드
+          </button>
+        </div>
+        <div class="evidence-table-wrap">
+          <table class="evidence-table">
+            <thead><tr><th>구분</th><th>과제/활동명</th><th>파일명</th><th>등록일</th><th>상태</th><th>증빙 확인</th></tr></thead>
+            <tbody id="evidenceTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /.fb-row2-grid -->
+
+    <!-- ━━━ ROW 3: 달성률 업데이트 + 1on1 기록 (1:1 동일 폭) ━━━ -->
+    <div class="fb-row3-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+      <!-- 달성률 입력 카드 -->
+      <div class="card fb-card" id="fbProgressCard">
+        <div class="card-header">
+          <h3><i class="fas fa-chart-line" style="color:#3B82F6"></i> 달성률 업데이트</h3>
+        </div>
+        <div style="text-align:center;padding:8px 0 4px">
+          <span id="fbProgressBigNum" style="font-size:42px;font-weight:800;color:#3B82F6;line-height:1">0</span>
+          <span style="font-size:20px;font-weight:700;color:#3B82F6">%</span>
+          <div id="fbProgressStatusText" style="font-size:12px;color:var(--text-secondary);margin-top:4px">달성률을 입력해주세요</div>
+        </div>
+        <div style="margin:10px 0;background:#E5E7EB;border-radius:99px;height:10px;overflow:hidden">
+          <div id="fbProgressBar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#3B82F6,#10B981);transition:width 0.4s ease;width:0%"></div>
+        </div>
+        <div id="fbProgressEditArea">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <input type="range" id="fbProgressSlider" min="0" max="100" step="5" value="0"
+              style="flex:1;accent-color:#3B82F6" oninput="fbSyncProgress(this.value,'slider')">
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" id="fbProgressInput" min="0" max="100" value="0"
+                style="width:58px;padding:5px 8px;border:1.5px solid #D1D5DB;border-radius:8px;font-size:14px;font-weight:700;text-align:center;color:#3B82F6"
+                oninput="fbSyncProgress(this.value,'input')">
+              <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">%</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+            <span style="font-size:11px;color:var(--text-secondary);align-self:center;margin-right:2px">빠른 선택:</span>
+            <button class="fb-quick-pct-btn" onclick="fbSetProgress(0)">0%</button>
+            <button class="fb-quick-pct-btn" onclick="fbSetProgress(25)">25%</button>
+            <button class="fb-quick-pct-btn" onclick="fbSetProgress(50)">50%</button>
+            <button class="fb-quick-pct-btn" onclick="fbSetProgress(75)">75%</button>
+            <button class="fb-quick-pct-btn" onclick="fbSetProgress(100)">100%</button>
+          </div>
+          <div style="margin-bottom:12px">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px"><i class="fas fa-pencil-alt" style="margin-right:4px"></i>업데이트 메모 <span style="font-weight:400;color:#9CA3AF">(선택)</span></label>
+            <textarea id="fbProgressMemo" rows="2" placeholder="달성률 변경 이유나 현황을 간략히 남겨주세요..."
+              style="width:100%;padding:8px 10px;border:1.5px solid #D1D5DB;border-radius:8px;font-size:12px;resize:none;box-sizing:border-box;color:var(--text-primary)"></textarea>
+          </div>
+          <button class="btn-primary" style="width:100%;padding:10px;font-size:13px;font-weight:700" onclick="fbSaveProgress()">
+            <i class="fas fa-save"></i> 달성률 저장
+          </button>
+        </div>
+        <div id="fbProgressHistory" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;display:none">
+          <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px"><i class="fas fa-history" style="margin-right:4px"></i>변경 이력</div>
+          <div id="fbProgressHistoryList" style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto"></div>
+        </div>
+      </div>
+
+      <!-- 1on1 기록 -->
+      <div class="card fb-card">
+        <div class="card-header">
+          <h3><i class="fas fa-comments"></i> 1on1 기록</h3>
+          <div style="display:flex;gap:6px" id="fb1on1BtnGroup">
+            <button class="btn-sm" id="fbAdd1on1Btn" onclick="openAddOneOnOne()"><i class="fas fa-plus"></i> 기록 추가</button>
+            <button class="btn-sm btn-outline-sm" onclick="showToast('전체 1on1 기록을 확인합니다.')">전체보기</button>
+          </div>
+        </div>
+        <div class="one-on-one-list" id="oneOnOneList"></div>
+      </div>
+
+    </div><!-- /.fb-row3-grid -->
+
+    <!-- ━━━ ROW 4: 중간점검/결과리뷰 + 활동평가 점수 (통합 카드) ━━━ -->
+    <div class="fb-row4-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+      <!-- 중간점검 / 결과 리뷰 -->
+      <div class="card fb-card" id="reviewFeedbackCard">
+        <div class="card-header">
+          <h3><i class="fas fa-clipboard-check"></i> 중간점검 / 결과 리뷰</h3>
+        </div>
+        <div class="review-stages-row" id="reviewStagesRow"></div>
+        <!-- 피드백 뷰 전환 탭 -->
+        <div class="fb-view-tabs" style="margin-top:16px">
+          <button class="fb-view-tab active" data-view="card" onclick="toggleFbView('card')">
+            <i class="fas fa-th-list"></i> 카드 뷰
+          </button>
+          <button class="fb-view-tab" data-view="timeline" onclick="toggleFbView('timeline')">
+            <i class="fas fa-stream"></i> 타임라인
+          </button>
+        </div>
+        <!-- 카드 뷰 래퍼 -->
+        <div id="reviewCardsWrap">
+          <div class="review-feedback-list" id="reviewCardsList" style="margin-top:8px"></div>
+        </div>
+        <!-- 타임라인 뷰 래퍼 -->
+        <div id="fbTimelineWrap" style="display:none;margin-top:8px"></div>
+      </div>
+
+      <!-- 활동 평가 결과 -->
+      <div class="card fb-card" id="activityEvalCard">
+        <div class="card-header">
+          <h3><i class="fas fa-star-half-alt"></i> 활동 평가
+            <span class="tag orange" style="font-size:10px;margin-left:6px;vertical-align:middle">Manager View</span>
+          </h3>
+          <span id="evalViewBadge" class="tag gray" style="font-size:11px">조회 전용</span>
+        </div>
+        <div class="activity-eval-wrap" id="activityEvalWrap"></div>
+
+        <!-- 개인 결과 통보 (활동평가 카드 하단에 통합) -->
+        <div id="finalResultCard" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <h4 style="font-size:13px;font-weight:700;color:var(--text-primary);margin:0">
+              <i class="fas fa-award" style="color:#8B5CF6;margin-right:6px"></i>개인 결과 통보
+            </h4>
+            <span class="tag purple" style="font-size:11px">최종 평가 완료</span>
+          </div>
+          <div class="final-result-wrap" id="finalResultWrap"></div>
+        </div>
+      </div>
+
+    </div><!-- /.fb-row4-grid -->
+
+    </div><!-- /#fbDashboardPanel -->
+
+    <!-- 모달들 -->
+    <div class="modal-overlay" id="selfFeedbackModal">
+      <div class="modal" style="width:640px;max-width:95vw">
+        <div class="modal-header">
+          <h2 id="selfFeedbackTitle"><i class="fas fa-pen-to-square" style="color:var(--primary);margin-right:8px"></i>피드백 작성</h2>
+          <button class="modal-close" onclick="closeFeedbackModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <!-- 피드백 흐름 안내 -->
+          <div id="fbFlowGuide" style="background:#EFF6FF;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#3B82F6;display:flex;align-items:flex-start;gap:8px">
+            <i class="fas fa-info-circle" style="margin-top:2px;flex-shrink:0"></i>
+            <span><strong>피드백 흐름:</strong> 자기 피드백 작성 → 상위 밴드 직책자에게 자동 알림 → 관리자 피드백 응답</span>
+          </div>
+          <div class="form-group">
+            <label>피드백 유형</label>
+            <div class="fb-type-selector" id="fbTypeSelector">
+              <div class="fb-type-btn active" data-type="self" onclick="selectFbType('self')">
+                <i class="fas fa-user"></i><span>자기 피드백</span><small>본인의 실행 내용 기록</small>
+              </div>
+              <div class="fb-type-btn" data-type="manager" onclick="selectFbType('manager')">
+                <i class="fas fa-user-tie"></i><span>관리자 피드백</span><small>상위자의 관찰 의견 기록</small>
+              </div>
+            </div>
+            <input type="hidden" id="fbTypeHidden" value="self" />
+          </div>
+          <div class="form-group">
+            <label>달성한 성과 <span style="color:var(--danger)">*</span></label>
+            <textarea class="form-control" rows="3" id="fbAchievement" placeholder="학습 및 업무 적용 성과를 구체적으로 작성하세요..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>학습 활동 요약</label>
+            <textarea class="form-control" rows="2" id="fbLearning" placeholder="수행한 학습 활동과 방법..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>개선이 필요한 점</label>
+            <textarea class="form-control" rows="2" id="fbImprove" placeholder="다음 사이클에서 개선하고 싶은 내용..."></textarea>
+          </div>
+          <!-- 품질 미터 -->
+          <div id="fbQualityMeter"></div>
+          <div class="form-group">
+            <label>평가 점수</label>
+            <div class="star-rating" id="starRating">
+              <i class="far fa-star" data-val="1"></i><i class="far fa-star" data-val="2"></i>
+              <i class="far fa-star" data-val="3"></i><i class="far fa-star" data-val="4"></i>
+              <i class="far fa-star" data-val="5"></i>
+            </div>
+            <span id="starLabel" style="font-size:12px;color:var(--text-secondary);margin-left:8px"></span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary" onclick="submitFeedback()"><i class="fas fa-paper-plane"></i> 제출</button>
+          <button class="btn-outline" onclick="closeFeedbackModal()">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="oneOnOneModal">
+      <div class="modal" style="width:560px;max-width:95vw">
+        <div class="modal-header">
+          <h2><i class="fas fa-comments" style="color:var(--primary);margin-right:8px"></i>1on1 미팅 요청</h2>
+          <button class="modal-close" onclick="closeModal('oneOnOneModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div style="background:#EFF6FF;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#3B82F6">
+            <i class="fas fa-info-circle" style="margin-right:5px"></i>상위 관리자에게 1on1 미팅을 요청합니다.
+          </div>
+          <div class="form-group">
+            <label>요청 대상 <span style="color:var(--danger)">*</span></label>
+            <select class="form-control" id="oo1TargetUser"><option value="">-- 관리자 선택 --</option></select>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>희망 날짜</label><input type="date" class="form-control" id="oo1Date" /></div>
+            <div class="form-group"><label>희망 시간</label><input type="time" class="form-control" id="oo1Time" /></div>
+          </div>
+          <div class="form-group"><label>미팅 주제 <span style="color:var(--danger)">*</span></label><input type="text" class="form-control" id="oo1Title" placeholder="예: 1분기 IDP 진행 상황 점검" /></div>
+          <div class="form-group"><label>요청 내용</label><textarea class="form-control" rows="3" id="oo1Content" placeholder="논의하고 싶은 내용을 미리 작성하세요..."></textarea></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary" onclick="requestOneOnOne()"><i class="fas fa-paper-plane"></i> 요청 보내기</button>
+          <button class="btn-outline" onclick="closeModal('oneOnOneModal')">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="evidenceUploadModal">
+      <div class="modal" style="width:540px;max-width:95vw">
+        <div class="modal-header">
+          <h2><i class="fas fa-upload" style="color:var(--primary);margin-right:8px"></i>실행 증빙 업로드</h2>
+          <button class="modal-close" onclick="closeModal('evidenceUploadModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>관련 IDP</label>
+            <select class="form-control" id="evIdpSelect" onchange="updateEvActions(this.value)"><option value="">IDP 선택...</option></select>
+          </div>
+          <div class="form-group">
+            <label>관련 실행 항목</label>
+            <select class="form-control" id="evActionSelect"><option value="">-- 먼저 IDP를 선택하세요 --</option></select>
+          </div>
+          <div class="form-group">
+            <label>자료 구분</label>
+            <select class="form-control" id="evCategory">
+              <option value="수료증">수료증 / 이수증</option>
+              <option value="결과물">결과물 / 포트폴리오</option>
+              <option value="보고서">보고서</option>
+              <option value="참고자료">참고 자료</option>
+            </select>
+          </div>
+          <div class="upload-zone" id="evUploadZone" style="padding:24px;margin-top:4px">
+            <i class="fas fa-cloud-upload-alt upload-icon" style="font-size:36px"></i>
+            <h3 style="font-size:14px">파일을 드래그 앤 드롭하거나 클릭</h3>
+            <p>PDF, DOCX, XLSX, PNG, JPG 지원</p>
+            <input type="file" id="evFileInput" multiple accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" />
+            <button class="btn-primary" style="margin-top:12px" onclick="document.getElementById('evFileInput').click()"><i class="fas fa-folder-open"></i> 파일 선택</button>
+          </div>
+          <div id="evFilePreview" style="margin-top:12px"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary" onclick="confirmEvidenceUpload()"><i class="fas fa-upload"></i> 업로드 완료</button>
+          <button class="btn-outline" onclick="closeModal('evidenceUploadModal')">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="feedbackDetailModal">
+      <div class="modal" style="width:580px;max-width:95vw">
+        <div class="modal-header">
+          <h2 id="fbDetailTitle">피드백 상세</h2>
+          <button class="modal-close" onclick="closeModal('feedbackDetailModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="fbDetailBody"></div>
+        <!-- 답변/공감 영역 (feedback_enhance.js가 동적으로 주입) -->
+        <div id="fbDetailReplyArea"></div>
+        <div class="modal-footer"><button class="btn-outline" onclick="closeModal('feedbackDetailModal')">닫기</button></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ======================== 구성원 실행 피드백 ======================== -->
+  <section class="page" id="page-member-feedback">
+    <div class="page-header">
+      <div>
+        <h1 id="mfbPageTitle">구성원 실행 피드백</h1>
+        <p id="mfbPageDesc">내 파트·팀 구성원의 IDP 실행 현황과 피드백을 확인합니다.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-outline" style="padding:8px 16px;font-size:13px;display:none" id="mfbBackToMembersBtn" onclick="showMfbMemberList()">
+          <i class="fas fa-arrow-left"></i> 구성원 목록
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== 구성원 리스트 패널 ===== -->
+    <div id="mfbMemberListPanel">
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h3><i class="fas fa-users" style="color:var(--primary)"></i> 구성원 IDP 현황</h3>
+          <span id="mfbScopeLabel" style="font-size:12px;color:var(--text-secondary);background:var(--bg);padding:4px 10px;border-radius:6px"></span>
+        </div>
+        <div id="mfbMemberCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;padding:4px 0"></div>
+      </div>
+
+      <!-- 수락 대기 1on1 섹션 -->
+      <div id="mfbPending1on1Panel"></div>
+    </div>
+
+    <!-- ===== 구성원 대시보드 패널 (구성원 선택 후) ===== -->
+    <div id="mfbDashboardPanel" style="display:none">
+
+      <!-- 구성원 정보 헤더 -->
+      <div id="mfbMemberInfoBanner" style="margin-bottom:16px;padding:14px 18px;background:linear-gradient(90deg,#EFF6FF,#F0FFF4);border-radius:10px;border-left:4px solid var(--primary)">
+        <div style="font-size:11px;color:#6B7280;margin-bottom:4px">조회 중인 구성원</div>
+        <div id="mfbMemberName" style="font-size:16px;font-weight:700;color:var(--text-primary)"></div>
+        <div id="mfbMemberMeta" style="font-size:12px;color:var(--text-secondary);margin-top:2px"></div>
+      </div>
+
+      <!-- 상단 요약 카드 -->
+      <div class="summary-cards" style="grid-template-columns:repeat(4,1fr)">
+        <div class="card stat-card">
+          <div class="stat-icon blue"><i class="fas fa-chart-line"></i></div>
+          <div class="stat-body">
+            <div class="stat-value" id="mfb-progress">0%</div>
+            <div class="stat-label">진행률</div>
+          </div>
+          <div class="stat-footer blue">목표 달성 기준</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+          <div class="stat-body">
+            <div class="stat-value" id="mfb-tasks">0/0</div>
+            <div class="stat-label">완료 과제</div>
+          </div>
+          <div class="stat-footer green">실행 항목 기준</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon orange"><i class="fas fa-comments"></i></div>
+          <div class="stat-body">
+            <div class="stat-value" id="mfb-1on1-count">0회</div>
+            <div class="stat-label">1on1 미팅</div>
+          </div>
+          <div class="stat-footer orange" id="mfb-1on1-date">-</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon purple"><i class="fas fa-award"></i></div>
+          <div class="stat-body">
+            <div class="stat-value" style="font-size:12px;line-height:1.5">
+              <span class="eval-stage-pill" id="mfb-stage-mid">중간</span>
+              <span class="eval-stage-pill" id="mfb-stage-term">기말</span>
+              <span class="eval-stage-pill" id="mfb-stage-final">최종</span>
+            </div>
+            <div class="stat-label">평가 상태</div>
+          </div>
+          <div class="stat-footer purple" id="mfb-stage-desc">평가 대기</div>
+        </div>
+      </div>
+
+      <!-- 메인 2컬럼 그리드 -->
+      <div class="fb-main-grid">
+
+        <!-- 좌측: IDP 선택 + 진행률(읽기전용) + 1on1 -->
+        <div class="fb-left-col">
+          <div class="card fb-card" style="margin-bottom:16px">
+            <div class="card-header">
+              <h3><i class="fas fa-list-ul" style="color:#10B981"></i> IDP 선택</h3>
+            </div>
+            <div id="mfbSelectedIdpBanner" style="display:none;margin:0 0 8px 0;padding:10px 14px;background:linear-gradient(90deg,#EFF6FF,#F0FFF4);border-radius:8px;border-left:3px solid #10B981">
+              <div style="font-size:11px;color:#6B7280;margin-bottom:2px">현재 선택된 IDP</div>
+              <div id="mfbSelectedIdpName" style="font-size:13px;font-weight:700;color:var(--text-primary)"></div>
+              <div id="mfbSelectedIdpMeta" style="font-size:11px;color:var(--text-secondary);margin-top:2px"></div>
+            </div>
+            <div id="mfbApprovedIdpList" style="padding:0">
+              <div style="padding:16px;text-align:center;color:var(--text-light);font-size:13px"><i class="fas fa-spinner fa-spin"></i> 로딩 중...</div>
+            </div>
+          </div>
+
+          <!-- 진행률 카드 (읽기 전용) -->
+          <div class="card fb-card" id="mfbProgressCard" style="margin-bottom:16px;display:none">
+            <div class="card-header">
+              <h3><i class="fas fa-chart-line" style="color:#3B82F6"></i> 달성률 현황</h3>
+              <span style="font-size:11px;color:#9CA3AF;background:#F3F4F6;border-radius:6px;padding:3px 8px"><i class="fas fa-lock" style="margin-right:3px"></i>읽기 전용</span>
+            </div>
+            <div style="text-align:center;padding:8px 0 4px">
+              <span id="mfbProgressBigNum" style="font-size:42px;font-weight:800;color:#3B82F6;line-height:1">0</span>
+              <span style="font-size:20px;font-weight:700;color:#3B82F6">%</span>
+              <div id="mfbProgressStatusText" style="font-size:12px;color:var(--text-secondary);margin-top:4px">-</div>
+            </div>
+            <div style="margin:10px 0;background:#E5E7EB;border-radius:99px;height:10px;overflow:hidden">
+              <div id="mfbProgressBar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#3B82F6,#10B981);transition:width 0.4s ease;width:0%"></div>
+            </div>
+            <!-- 변경 이력 -->
+            <div id="mfbProgressHistory" style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;display:none">
+              <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px"><i class="fas fa-history" style="margin-right:4px"></i>구성원 변경 이력</div>
+              <div id="mfbProgressHistoryList" style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto"></div>
+            </div>
+          </div>
+
+          <!-- 1on1 기록 (관리자 응답 가능) -->
+          <div class="card fb-card">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+              <h3><i class="fas fa-comments"></i> 1on1 기록</h3>
+              <span id="mfbPending1on1Badge" style="display:none;background:#F59E0B;color:white;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700"></span>
+            </div>
+            <div class="one-on-one-list" id="mfbOneOnOneList"></div>
+          </div>
+        </div>
+
+        <!-- 우측: 증빙 + 활동평가 -->
+        <div class="fb-right-col">
+          <div class="card fb-card">
+            <div class="card-header">
+              <h3><i class="fas fa-file-lines"></i> 업무 적용 및 실행 증빙</h3>
+            </div>
+            <div class="evidence-table-wrap">
+              <table class="evidence-table">
+                <thead><tr><th>구분</th><th>과제/활동명</th><th>파일명</th><th>등록일</th><th>상태</th><th>증빙 확인</th></tr></thead>
+                <tbody id="mfbEvidenceTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 활동 평가 (관리자 입력 가능) -->
+          <div class="card fb-card" style="margin-top:16px" id="mfbActivityEvalCard">
+            <div class="card-header">
+              <h3><i class="fas fa-star-half-alt"></i> 활동 평가
+                <span class="tag orange" style="font-size:10px;margin-left:6px;vertical-align:middle">Manager View</span>
+              </h3>
+              <span id="mfbEvalViewBadge" class="tag blue" style="font-size:11px">관리자 입력</span>
+            </div>
+            <div class="activity-eval-wrap" id="mfbActivityEvalWrap"></div>
+          </div>
+
+        </div>
+      </div><!-- /.fb-main-grid -->
+    </div><!-- /#mfbDashboardPanel -->
+
+  </section>
+
+  <!-- ======================== 결과 분석 ======================== -->
+  <section class="page" id="page-analytics">
+    <div class="page-header"><div><h1>결과 분석</h1><p>IDP 실행 결과와 역량 성장 현황을 다양한 시각화로 확인하세요.</p></div></div>
+    <div class="summary-cards">
+      <div class="card stat-card"><div class="stat-icon blue"><i class="fas fa-users"></i></div><div class="stat-body"><div class="stat-value" id="analytics-completion">-</div><div class="stat-label">IDP 완료율</div></div><div class="stat-footer blue" id="analytics-completion-sub">데이터 없음</div></div>
+      <div class="card stat-card"><div class="stat-icon green"><i class="fas fa-trophy"></i></div><div class="stat-body"><div class="stat-value" id="analytics-avg-level">-</div><div class="stat-label">평균 역량 수준</div></div><div class="stat-footer green" id="analytics-avg-level-sub">IDP 작성 후 표시</div></div>
+      <div class="card stat-card"><div class="stat-icon orange"><i class="fas fa-graduation-cap"></i></div><div class="stat-body"><div class="stat-value" id="analytics-done-count">-</div><div class="stat-label">완료한 학습</div></div><div class="stat-footer orange" id="analytics-done-sub">IDP 작성 후 표시</div></div>
+      <div class="card stat-card"><div class="stat-icon purple"><i class="fas fa-fire"></i></div><div class="stat-body"><div class="stat-value" id="analytics-growth">-</div><div class="stat-label">역량 성장치</div></div><div class="stat-footer purple" id="analytics-growth-sub">전 사이클 대비</div></div>
+    </div>
+    <div class="analytics-grid">
+      <div class="card analytics-card">
+        <div class="card-header"><h3><i class="fas fa-briefcase"></i> 직무역량 성장 비교</h3>
+          <div class="legend-row">
+            <span class="legend-dot blue"></span><span>내 현재수준</span>
+            <span class="legend-dot" style="background:#4F6EF7;margin-left:8px"></span><span id="analyticsLegendTeam">팀 목표</span>
+            <span class="legend-dot" style="background:#EF4444;margin-left:8px"></span><span id="analyticsLegendBiz">사업부 목표</span>
+          </div>
+        </div>
+        <div class="chart-container" style="height:300px"><canvas id="compareRadarChart"></canvas></div>
+      </div>
+      <div class="card analytics-card">
+        <div class="card-header"><h3><i class="fas fa-crown"></i> 리더십역량 성장 비교
+            <span id="compareLeaderBandLabel" style="font-size:11px;font-weight:400;color:#6B7280;margin-left:8px;background:#F3F4F6;border-radius:4px;padding:2px 7px"></span>
+          </h3>
+          <div class="legend-row">
+            <span class="legend-dot" style="background:#22C55E"></span><span>내 현재수준</span>
+            <span class="legend-dot" style="background:#4F6EF7;margin-left:8px"></span><span id="analyticsLeaderLegendTeam">팀 목표</span>
+            <span class="legend-dot" style="background:#EF4444;margin-left:8px"></span><span id="analyticsLeaderLegendBiz">사업부 목표</span>
+          </div>
+        </div>
+        <div class="chart-container" style="height:300px"><canvas id="compareLeaderRadarChart"></canvas></div>
+      </div>
+      <div class="card analytics-card wide">
+        <div class="card-header"><h3><i class="fas fa-medal"></i> 역량별 달성 상세</h3></div>
+        <div class="achievement-list" id="achievementList"></div>
+      </div>
+    </div>
+    <!-- 숨겨진 요소 (JS 호환성 유지) -->
+    <span id="analyticsTimelineTitle" style="display:none">IDP 실행 타임라인</span>
+    <div id="ganttChart" style="display:none"></div>
+    <!-- canvas 호환성 유지 (JS 오류 방지) -->
+    <canvas id="progressBarChart" style="display:none"></canvas>
+    <div id="heatmapContainer" style="display:none"></div>
+  </section>
+
+  <!-- ======================== 역량개발 평가 (상위밴드 전용) ======================== -->
+  <section class="page" id="page-upper-band-eval">
+    <div class="page-header">
+      <div>
+        <h1><i class="fas fa-star-half-alt" style="color:#F59E0B;margin-right:8px"></i>역량개발 평가</h1>
+        <p>하위 구성원의 IDP 역량 개발 현황을 평가하고 피드백을 제공합니다.</p>
+      </div>
+    </div>
+
+    <!-- 필터 바 -->
+    <div class="card" style="margin-bottom:16px;padding:14px 20px">
+      <!-- 조회 범위 안내 -->
+      <div id="ube-scopeLabel" style="font-size:12px;color:#6366f1;font-weight:600;margin-bottom:10px;padding:6px 10px;background:#EEF2FF;border-radius:6px;display:inline-block"></div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px">
+          <label style="font-size:13px;font-weight:600;color:var(--text-secondary);white-space:nowrap">구성원 선택</label>
+          <select class="form-control" id="ube-memberSelect" onchange="ubeLoadMemberIdps(this.value)" style="max-width:250px">
+            <option value="">-- 구성원 선택 --</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="font-size:13px;font-weight:600;color:var(--text-secondary);white-space:nowrap">IDP</label>
+          <select class="form-control" id="ube-idpSelect" onchange="ubeLoadIdpDetail(this.value)" style="max-width:280px">
+            <option value="">-- IDP 선택 --</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:6px">
+          <span class="tag" id="ube-statusTag" style="font-size:11px;background:#f3f4f6;color:#6b7280">미선택</span>
+          <span class="tag green" id="ube-progressTag" style="font-size:11px;display:none"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 평가 내용 -->
+    <div id="ube-mainContent" style="display:none">
+
+      <!-- IDP 요약 정보 -->
+      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#EEF2FF,#F5F3FF);border-left:4px solid #6366f1">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;padding:4px">
+          <div>
+            <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:3px">역량명</div>
+            <div style="font-size:15px;font-weight:700;color:#4338CA" id="ube-compName">-</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:3px">구성원</div>
+            <div style="font-size:14px;font-weight:600;color:#374151" id="ube-memberName">-</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:3px">현재 → 목표수준</div>
+            <div style="font-size:14px;font-weight:700;color:#6366f1" id="ube-levels">-</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:3px">기간</div>
+            <div style="font-size:13px;color:#374151" id="ube-period">-</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:3px">진행률</div>
+            <div style="font-size:14px;font-weight:700;color:#10B981" id="ube-progress">-</div>
+          </div>
+        </div>
+        <!-- 개발목표 -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb">
+          <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:4px">개발 목표</div>
+          <div style="font-size:13px;color:#374151;line-height:1.6" id="ube-goal">-</div>
+        </div>
+      </div>
+
+      <!-- 2컬럼 그리드: 실행항목 + 증빙자료 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+        <!-- 좌: 실행 항목 현황 -->
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-list-check" style="color:#3B82F6"></i> 실행 항목 현황</h3>
+          </div>
+          <div id="ube-actionList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto"></div>
+        </div>
+
+        <!-- 우: 증빙 자료 현황 -->
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-file-lines" style="color:#10B981"></i> 증빙 자료</h3>
+          </div>
+          <div id="ube-evidenceList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto"></div>
+        </div>
+
+      </div>
+
+      <!-- 자기 피드백 이력 (전체 폭 — 1차·2차 평가자 모두 동일하게 표시) -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <h3><i class="fas fa-comment-dots" style="color:#8B5CF6"></i> 자기 피드백 이력</h3>
+          <span style="font-size:11px;color:#6B7280">최근 5건 표시</span>
+        </div>
+        <div id="ube-selfFeedbackList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;max-height:260px;overflow-y:auto;padding:4px 0"></div>
+      </div>
+
+      <!-- 1차/2차 평가 패널 (JS에 의해 동적 렌더) -->
+      <div id="ube-evalPanel" style="margin-top:16px"></div>
+
+    </div>
+
+    <!-- 빈 상태 -->
+    <div id="ube-emptyState" style="padding:60px;text-align:center;color:var(--text-light)">
+      <i class="fas fa-user-check" style="font-size:48px;opacity:0.2;display:block;margin-bottom:16px"></i>
+      <p style="font-size:15px;font-weight:600;margin-bottom:8px">구성원과 IDP를 선택하세요</p>
+      <p style="font-size:13px">상위 필터에서 구성원과 IDP를 선택하면 역량개발 평가를 입력할 수 있습니다.</p>
+    </div>
+  </section>
+
+  <!-- ======================== 역량 목표 관리 (C3파트장/C4 전용) ======================== -->
+  <section class="page" id="page-comp-target-mgmt">
+    <div class="page-header">
+      <div><h1><i class="fas fa-bullseye" style="color:#6366f1"></i> 역량 목표 관리</h1>
+        <p>팀·파트·사업부 단위로 역량 목표를 설정합니다. 설정된 목표는 소속 직원에게 자동 적용됩니다.</p></div>
+    </div>
+    <div id="compTargetMgmtContainer"></div>
+  </section>
+
+  <!-- ======================== 1on1 현황 통계 ======================== -->
+  <section class="page" id="page-oo1-dashboard">
+    <div class="page-header">
+      <div>
+        <h1><i class="fas fa-chart-pie" style="color:var(--primary);margin-right:10px"></i>1on1 현황 통계</h1>
+        <p>1on1 미팅 누적 현황, 구성원별 통계, 완료율을 한눈에 확인합니다.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="form-control" id="oo1StatPeriod" style="width:140px" onchange="renderOo1Dashboard()">
+          <option value="all">전체 기간</option>
+          <option value="3">최근 3개월</option>
+          <option value="6">최근 6개월</option>
+          <option value="12">최근 12개월</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 요약 카드 -->
+    <div class="summary-cards" id="oo1StatCards" style="margin-bottom:20px"></div>
+
+    <!-- 차트 + 구성원 테이블 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <!-- 월별 1on1 건수 바 차트 -->
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fas fa-bar-chart"></i> 월별 1on1 현황</h3>
+        </div>
+        <div style="height:260px"><canvas id="oo1MonthlyChart"></canvas></div>
+      </div>
+      <!-- 상태별 파이 차트 -->
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fas fa-circle-half-stroke"></i> 상태별 분포</h3>
+        </div>
+        <div style="height:260px;display:flex;align-items:center;justify-content:center">
+          <canvas id="oo1StatusChart" style="max-height:240px"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 구성원별 통계 테이블 (C3 이상) -->
+    <div class="card" id="oo1MemberStatCard">
+      <div class="card-header">
+        <h3><i class="fas fa-users"></i> 구성원별 1on1 현황</h3>
+        <span id="oo1MemberStatDesc" style="font-size:12px;color:var(--text-secondary)"></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table" style="min-width:600px">
+          <thead>
+            <tr>
+              <th>구성원</th>
+              <th>소속</th>
+              <th>밴드</th>
+              <th style="text-align:center">전체</th>
+              <th style="text-align:center">완료</th>
+              <th style="text-align:center">예정</th>
+              <th style="text-align:center">완료율</th>
+              <th style="text-align:center">최근 면담</th>
+              <th style="text-align:center">평균 간격</th>
+            </tr>
+          </thead>
+          <tbody id="oo1MemberStatBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 내 1on1 전체 이력 (일반 사용자) -->
+    <div class="card" id="oo1MyHistCard">
+      <div class="card-header">
+        <h3><i class="fas fa-history"></i> 내 1on1 전체 이력</h3>
+      </div>
+      <div id="oo1MyHistList" style="display:flex;flex-direction:column;gap:8px;padding:4px 0"></div>
+    </div>
+  </section>
+
+  <!-- ======================== 1on1 정기 일정 관리 ======================== -->
+  <section class="page" id="page-oo1-schedule">
+    <div class="page-header">
+      <div>
+        <h1><i class="fas fa-calendar-plus" style="color:var(--primary);margin-right:10px"></i>정기 1on1 일정 관리</h1>
+        <p>정기 면담 주기를 설정하고 일정을 자동 생성합니다. 확정된 일정은 캘린더로 내보낼 수 있습니다.</p>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start">
+
+      <!-- 좌측: 정기 일정 설정 -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- 정기 설정 카드 -->
+        <div class="card">
+          <div class="card-header"><h3><i class="fas fa-sliders"></i> 정기 일정 설정</h3></div>
+          <div style="padding:4px 0">
+            <div class="form-group">
+              <label>면담 대상 <span style="color:#EF4444">*</span></label>
+              <select class="form-control" id="schedTargetUser">
+                <option value="">-- 상위자 선택 --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>반복 주기 <span style="color:#EF4444">*</span></label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <label class="sched-cycle-btn" data-val="weekly">
+                  <input type="radio" name="schedCycle" value="weekly"> 매주
+                </label>
+                <label class="sched-cycle-btn" data-val="biweekly">
+                  <input type="radio" name="schedCycle" value="biweekly"> 격주
+                </label>
+                <label class="sched-cycle-btn" data-val="monthly">
+                  <input type="radio" name="schedCycle" value="monthly" checked> 매월
+                </label>
+                <label class="sched-cycle-btn" data-val="quarterly">
+                  <input type="radio" name="schedCycle" value="quarterly"> 분기
+                </label>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>시작일 <span style="color:#EF4444">*</span></label>
+                <input type="date" class="form-control" id="schedStartDate">
+              </div>
+              <div class="form-group">
+                <label>종료일</label>
+                <input type="date" class="form-control" id="schedEndDate">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>면담 시간</label>
+                <input type="time" class="form-control" id="schedTime" value="14:00">
+              </div>
+              <div class="form-group">
+                <label>소요 시간(분)</label>
+                <select class="form-control" id="schedDuration">
+                  <option value="30">30분</option>
+                  <option value="60" selected>60분</option>
+                  <option value="90">90분</option>
+                  <option value="120">120분</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>면담 제목 템플릿</label>
+              <input type="text" class="form-control" id="schedTitleTmpl" placeholder="예: 월간 1on1 면담 - {name}">
+              <div style="font-size:11px;color:var(--text-secondary);margin-top:4px">{name} = 상대방 이름 자동 치환</div>
+            </div>
+            <div class="form-group">
+              <label>기본 아젠다 (선택)</label>
+              <textarea class="form-control" rows="3" id="schedDefaultAgenda"
+                placeholder="이 정기 설정의 기본 아젠다를 입력하세요.&#10;(예: IDP 진행 현황 / 어려운 점 공유 / 다음 계획)"></textarea>
+            </div>
+            <button class="btn-primary" style="width:100%;margin-top:4px" onclick="generateSchedule()">
+              <i class="fas fa-wand-magic-sparkles"></i> 일정 자동 생성
+            </button>
+          </div>
+        </div>
+
+        <!-- 저장된 정기 설정 목록 -->
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-bookmark"></i> 저장된 정기 설정</h3>
+          </div>
+          <div id="savedSchedList" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
+            <div style="padding:20px;text-align:center;color:var(--text-light);font-size:13px">저장된 설정이 없습니다.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우측: 생성된 일정 미리보기 + 캘린더 -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- 생성 미리보기 -->
+        <div class="card" id="schedPreviewCard" style="display:none">
+          <div class="card-header" style="justify-content:space-between">
+            <h3><i class="fas fa-list-check"></i> 생성 예정 일정 <span id="schedPreviewCount" style="font-size:12px;color:var(--text-secondary);font-weight:400"></span></h3>
+            <div style="display:flex;gap:8px">
+              <button class="btn-sm" style="background:#10B981;color:white;border-color:#10B981" onclick="confirmGenerateSchedule()">
+                <i class="fas fa-check"></i> 저장
+              </button>
+              <button class="btn-sm btn-outline-sm" onclick="document.getElementById('schedPreviewCard').style.display='none'">취소</button>
+            </div>
+          </div>
+          <div id="schedPreviewList" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;padding:4px 0"></div>
+        </div>
+
+        <!-- 생성된 정기 1on1 목록 -->
+        <div class="card">
+          <div class="card-header" style="justify-content:space-between">
+            <h3><i class="fas fa-calendar-days"></i> 정기 1on1 일정</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select class="form-control" id="schedListFilter" style="width:120px;font-size:12px" onchange="renderScheduledOo1List()">
+                <option value="all">전체</option>
+                <option value="pending">수락대기</option>
+                <option value="scheduled">일정확정</option>
+                <option value="completed">완료</option>
+              </select>
+            </div>
+          </div>
+          <div id="scheduledOo1List" style="display:flex;flex-direction:column;gap:8px;padding:4px 0">
+            <div style="padding:30px;text-align:center;color:var(--text-light);font-size:13px">
+              <i class="fas fa-calendar" style="font-size:28px;opacity:0.25;display:block;margin-bottom:8px"></i>
+              정기 일정을 생성하면 여기에 표시됩니다.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 아젠다 편집 모달 (인라인) -->
+    <div class="modal-overlay" id="oo1AgendaModal">
+      <div class="modal" style="width:580px;max-width:96vw">
+        <div class="modal-header" style="background:linear-gradient(135deg,#F0F9FF,#E0F2FE)">
+          <h2 style="color:#0284C7"><i class="fas fa-list-ul" style="margin-right:8px"></i>1on1 아젠다 관리</h2>
+          <button class="modal-close" onclick="closeModal('oo1AgendaModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="agendaOo1Id">
+          <div id="agendaOo1Info" style="background:#F0F9FF;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;border-left:4px solid #0284C7"></div>
+
+          <!-- 아젠다 항목 목록 -->
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <label style="font-size:13px;font-weight:600"><i class="fas fa-list" style="color:#0284C7;margin-right:4px"></i>아젠다 항목</label>
+              <button class="btn-sm" style="background:#0284C7;color:white;border-color:#0284C7" onclick="addAgendaItem()">
+                <i class="fas fa-plus"></i> 항목 추가
+              </button>
+            </div>
+            <div id="agendaItemList" style="display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+
+          <!-- 공유 메모 -->
+          <div class="form-group">
+            <label><i class="fas fa-sticky-note" style="color:#F59E0B;margin-right:4px"></i>공유 메모 (양측 모두 편집 가능)</label>
+            <textarea class="form-control" rows="4" id="agendaSharedNote"
+              placeholder="면담 전 사전 공유할 내용, 자료 링크, 질문 등을 자유롭게 입력하세요."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary" style="background:#0284C7;border-color:#0284C7" onclick="saveAgenda()">
+            <i class="fas fa-save"></i> 아젠다 저장
+          </button>
+          <button class="btn-outline" onclick="closeModal('oo1AgendaModal')">닫기</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ======================== 설정 ======================== -->
+  <section class="page" id="page-settings">
+    <div class="page-header"><div><h1>설정</h1><p>프로필, 알림, 운영 사이클을 설정하세요.</p></div></div>
+    <div class="settings-grid">
+      <div class="card settings-card">
+        <h3><i class="fas fa-user"></i> 프로필 설정</h3>
+        <div class="form-group"><label>이름</label><input type="text" class="form-control" id="settingName" readonly style="background:#f9fafb;color:#6b7280" /></div>
+        <div class="form-group"><label>사업부</label><input type="text" class="form-control" id="settingBizUnit" readonly style="background:#f9fafb;color:#6b7280" /></div>
+        <div class="form-group"><label>부서(팀)</label><input type="text" class="form-control" id="settingDept" readonly style="background:#f9fafb;color:#6b7280" /></div>
+        <div class="form-group"><label>파트</label><input type="text" class="form-control" id="settingPart" readonly style="background:#f9fafb;color:#6b7280" /></div>
+        <div class="form-group"><label>직책</label><input type="text" class="form-control" id="settingPosition" readonly style="background:#f9fafb;color:#6b7280" /></div>
+        <div class="form-group"><label>밴드</label><input type="text" class="form-control" id="settingBand" readonly style="background:#f9fafb;color:#6b7280" /></div>
+        <div class="form-group"><label>이메일</label><input type="email" class="form-control" id="settingEmail" readonly style="background:#f9fafb;color:#6b7280" /></div>
+        <p style="font-size:11px;color:#9CA3AF;margin-top:4px"><i class="fas fa-info-circle"></i> 프로필 정보는 관리자가 관리합니다.</p>
+        <button class="btn-outline" style="margin-top:8px" onclick="doLogout()"><i class="fas fa-right-from-bracket"></i> 로그아웃</button>
+      </div>
+      <div class="card settings-card">
+        <h3><i class="fas fa-lock"></i> 비밀번호 변경</h3>
+        <div class="form-group"><label>현재 비밀번호</label><input type="password" class="form-control" id="settingCurrentPw" placeholder="현재 비밀번호" /></div>
+        <div class="form-group"><label>새 비밀번호</label><input type="password" class="form-control" id="settingNewPw" placeholder="새 비밀번호 (최소 4자)" /></div>
+        <div class="form-group"><label>새 비밀번호 확인</label><input type="password" class="form-control" id="settingNewPw2" placeholder="새 비밀번호 확인" /></div>
+        <div id="settingPwMsg" style="font-size:12px;margin-top:4px;display:none"></div>
+        <button class="btn-primary" onclick="changePassword()">비밀번호 변경</button>
+      </div>
+      <div class="card settings-card">
+        <h3><i class="fas fa-rotate"></i> 운영 사이클</h3>
+        <div class="form-group"><label>현재 사이클</label><input type="text" class="form-control" value="2026 Q1 개발 사이클" /></div>
+        <div class="form-group"><label>기간</label><div class="date-range"><input type="date" class="form-control" value="2026-01-05" /><span>~</span><input type="date" class="form-control" value="2026-03-31" /></div></div>
+        <button class="btn-primary" onclick="showToast('사이클이 저장되었습니다.')">저장</button>
+      </div>
+      <div class="card settings-card">
+        <h3><i class="fas fa-bell"></i> 알림 설정</h3>
+        <div class="toggle-list">
+          <div class="toggle-item"><span>IDP 마감 알림 (D-7)</span><label class="toggle-switch"><input type="checkbox" checked /><span class="toggle-slider"></span></label></div>
+          <div class="toggle-item"><span>1on1 미팅 알림</span><label class="toggle-switch"><input type="checkbox" checked /><span class="toggle-slider"></span></label></div>
+          <div class="toggle-item"><span>상위자 피드백 알림</span><label class="toggle-switch"><input type="checkbox" checked /><span class="toggle-slider"></span></label></div>
+          <div class="toggle-item"><span>결과 통보 알림</span><label class="toggle-switch"><input type="checkbox" checked /><span class="toggle-slider"></span></label></div>
+        </div>
+      </div>
+      <div class="card settings-card" style="border:1.5px solid #dbeafe;background:#f0f7ff">
+        <h3 style="color:#1d4ed8"><i class="fas fa-database"></i> 데이터 관리</h3>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;line-height:1.6">
+          나의 IDP 데이터와 증거 자료를 안전하게 백업하세요.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn-primary" style="font-size:12px" onclick="exportIDPExcel()">
+            <i class="fas fa-file-excel"></i> IDP 데이터 Excel 다운로드
+          </button>
+          <button class="btn-outline" style="font-size:12px" onclick="exportEvidenceZip()">
+            <i class="fas fa-file-zipper"></i> 증거 자료 ZIP 다운로드
+          </button>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text-light)" id="storageInfo"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"><i class="fas fa-check-circle"></i><span id="toastMsg"></span></div>
+
+<!-- ====== 진단 이력 상세 모달 ====== -->
+<div id="diagDetailModal" class="modal-overlay" style="display:none" onclick="closeDiagDetailModal(event)">
+  <div class="modal-box diag-modal-box" onclick="event.stopPropagation()">
+    <button class="modal-close-btn" onclick="closeDiagDetailModal()"><i class="fas fa-times"></i></button>
+    <div id="diagDetailContent"></div>
+  </div>
+</div>
+
+<!-- ====== 역량 목표 설정 모달 (C4 팀장/사업부장 전용) ====== -->
+<div class="modal-overlay" id="compTargetModal" onclick="if(event.target===this)closeModal('compTargetModal')">
+  <div class="modal" style="max-width:640px;width:95vw">
+    <div class="modal-header" style="background:linear-gradient(135deg,#EEF2FF,#F5F3FF)">
+      <div>
+        <h2 style="color:#4F46E5"><i class="fas fa-bullseye" style="margin-right:8px"></i>역량 목표 설정</h2>
+        <div style="font-size:12px;color:#6366f1;margin-top:3px" id="ctModalSubtitle">팀·사업부 역량 목표를 설정합니다</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('compTargetModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="padding:20px 24px;max-height:70vh;overflow-y:auto">
+      <!-- 조직 유형 선택 탭 -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="display:flex;gap:6px;background:#F3F4F6;border-radius:8px;padding:3px;width:fit-content">
+          <button class="btn-sm active" id="ctModalTabTeam" onclick="switchCtModalTab('team')"
+            style="border-radius:6px;padding:6px 16px;font-weight:600"><i class="fas fa-users" style="margin-right:5px"></i>팀 목표</button>
+          <button class="btn-sm" id="ctModalTabBiz" onclick="switchCtModalTab('biz')"
+            style="border-radius:6px;padding:6px 16px;font-weight:600"><i class="fas fa-building" style="margin-right:5px"></i>사업부 목표</button>
+        </div>
+        <!-- 역량 유형 탭 -->
+        <div style="display:flex;gap:6px;background:#F3F4F6;border-radius:8px;padding:3px;width:fit-content">
+          <button class="btn-sm active" id="ctModalCompTypeJob" onclick="switchCtModalCompType('job')"
+            style="border-radius:6px;padding:6px 16px;font-weight:600"><i class="fas fa-briefcase" style="margin-right:5px"></i>직무역량</button>
+          <button class="btn-sm" id="ctModalCompTypeLead" onclick="switchCtModalCompType('leadership')"
+            style="border-radius:6px;padding:6px 16px;font-weight:600;color:#7C3AED"><i class="fas fa-crown" style="margin-right:5px"></i>리더십역량</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px" id="ctModalOrgInfo"></div>
+
+      <!-- 역량별 슬라이더 -->
+      <div id="ctModalRows" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px"></div>
+
+      <!-- 미리보기 차트 -->
+      <div style="background:#F8F9FC;border-radius:10px;padding:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">
+          <i class="fas fa-spider" style="margin-right:5px;color:#6366f1"></i>목표 분포 미리보기
+        </div>
+        <div style="height:220px;max-width:300px;margin:0 auto"><canvas id="ctModalPreviewRadar"></canvas></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="saveCtModalTargets()"><i class="fas fa-save"></i> 저장 · 즉시 반영</button>
+      <button class="btn-outline" onclick="closeModal('compTargetModal')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== IDP 고도화 모달 모음 ======================== -->
+
+<!-- [②] IDP 템플릿 라이브러리 모달 -->
+<div class="modal-overlay" id="idpTemplateModal">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff">
+      <h2><i class="fas fa-magic"></i> IDP 템플릿 라이브러리</h2>
+      <button class="modal-close" style="color:#fff" onclick="closeIDPTemplateModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
+        직무·직책별 추천 IDP 템플릿을 선택하면 개발목표와 실행항목이 자동으로 채워집니다. 내용은 저장 전 자유롭게 수정하세요.
+      </p>
+      <div id="idpTemplateList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeIDPTemplateModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- [④] IDP 복사 확인 모달 -->
+<div class="modal-overlay" id="copyIDPModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header" style="background:var(--primary);color:#fff">
+      <h2><i class="fas fa-copy"></i> IDP 복사</h2>
+      <button class="modal-close" style="color:#fff" onclick="closeCopyIDPModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
+        아래 IDP의 내용을 새 IDP 작성 폼에 복사합니다. 내용은 저장 전 자유롭게 수정할 수 있습니다.
+      </p>
+      <div id="copyIDPSource" style="padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);margin-bottom:12px"></div>
+      <div style="background:#EFF6FF;border-radius:8px;padding:10px 14px;font-size:12px;color:#1D4ED8">
+        <i class="fas fa-info-circle"></i> 복사 후 IDP 작성 페이지로 이동합니다. 역량·목표·실행항목이 모두 복사되며, 진행률은 0%로 초기화됩니다.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="confirmCopyIDP()"><i class="fas fa-copy"></i> 복사하여 새 IDP 작성</button>
+      <button class="btn-outline" onclick="closeCopyIDPModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- [⑦] 반려 후 재작성 모달 -->
+<div class="modal-overlay" id="rejectRewriteModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header" style="background:#F59E0B;color:#fff">
+      <h2><i class="fas fa-rotate-left"></i> 반려 IDP 재작성</h2>
+      <button class="modal-close" style="color:#fff" onclick="closeRejectRewriteModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px"><i class="fas fa-comment-slash" style="color:#EF4444"></i> 반려 의견</div>
+        <div id="rejectCommentList" style="background:#FFF1F2;border-radius:8px;padding:12px;border:1px solid #FECDD3"></div>
+      </div>
+      <div style="background:#FFFBEB;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400E">
+        <i class="fas fa-exclamation-triangle"></i> 반려 의견을 참고하여 IDP를 수정한 후 재제출하세요. 기존 내용이 그대로 불러와집니다.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" style="background:#F59E0B;border-color:#F59E0B" onclick="confirmRejectRewrite()"><i class="fas fa-pen"></i> 수정하러 가기</button>
+      <button class="btn-outline" onclick="closeRejectRewriteModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- [⑧] IDP 공개 설정 모달 -->
+<div class="modal-overlay" id="visibilityModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header" style="background:var(--primary);color:#fff">
+      <h2 id="visibilityModalTitle"><i class="fas fa-eye"></i> IDP 공개 설정</h2>
+      <button class="modal-close" style="color:#fff" onclick="document.getElementById('visibilityModal').classList.remove('open')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">이 IDP의 공개 범위를 설정하세요.</p>
+      <div class="visibility-btn-group" style="flex-direction:column;gap:10px">
+        <button class="visibility-btn" data-value="private" style="justify-content:flex-start;padding:12px 16px">
+          <i class="fas fa-lock" style="margin-right:10px;color:#6B7280"></i>
+          <div><div style="font-weight:600">본인만</div><div style="font-size:11px;color:var(--text-secondary)">나만 볼 수 있습니다</div></div>
+        </button>
+        <button class="visibility-btn active" data-value="team" style="justify-content:flex-start;padding:12px 16px">
+          <i class="fas fa-users" style="margin-right:10px;color:#3B82F6"></i>
+          <div><div style="font-weight:600">팀 공개</div><div style="font-size:11px;color:var(--text-secondary)">같은 팀/파트 구성원이 볼 수 있습니다</div></div>
+        </button>
+        <button class="visibility-btn" data-value="bizUnit" style="justify-content:flex-start;padding:12px 16px">
+          <i class="fas fa-building" style="margin-right:10px;color:#8B5CF6"></i>
+          <div><div style="font-weight:600">사업부 공개</div><div style="font-size:11px;color:var(--text-secondary)">사업부 전체 구성원이 볼 수 있습니다</div></div>
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="saveVisibilityModal()"><i class="fas fa-save"></i> 저장</button>
+      <button class="btn-outline" onclick="document.getElementById('visibilityModal').classList.remove('open')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- [⑤] 커스텀 합의 라인 설정 모달 (HR 관리자) -->
+<div class="modal-overlay" id="customApprovalLineModal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header" style="background:#1E293B;color:#fff">
+      <h2><i class="fas fa-sitemap"></i> 합의 라인 커스텀 설정</h2>
+      <button class="modal-close" style="color:#fff" onclick="closeCustomApprovalLineModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- 현재 설정 목록 -->
+      <div style="margin-bottom:20px">
+        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-list"></i> 현재 커스텀 합의 라인</div>
+        <div id="customApprovalLines"></div>
+      </div>
+      <!-- 새 합의 라인 추가 폼 -->
+      <div style="border:1.5px dashed var(--border);border-radius:10px;padding:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px" id="customApvFormTitle">
+          <i class="fas fa-plus-circle"></i> 새 합의 라인 추가
+        </div>
+        <input type="hidden" id="customApvEditId">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">조직 단위</label>
+            <input type="text" class="form-control" id="customApvOrgUnit" placeholder="예: MES파트, MI팀, 제1사업본부">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">적용 범위</label>
+            <select class="form-control" id="customApvOrgType">
+              <option value="all">전체 (기본값)</option>
+              <option value="bizUnit">사업부/본부</option>
+              <option value="team">팀</option>
+              <option value="part">파트</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">합의 단계 (순서대로)</div>
+        <div id="customApvStepsWrap" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+        <button class="btn-outline" style="font-size:12px;width:100%" onclick="addCustomApprovalStep()">
+          <i class="fas fa-plus"></i> 합의자 추가
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="saveCustomApprovalLine()"><i class="fas fa-save"></i> 저장</button>
+      <button class="btn-outline" onclick="_resetCustomApvForm&&_resetCustomApvForm()">초기화</button>
+      <button class="btn-outline" onclick="closeCustomApprovalLineModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/firebase.js"></script>
+<script src="js/app.js"></script>
+<script src="js/feedback.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/oo1manager.js"></script>
+<script src="js/idp_enhance.js"></script>
+<script src="js/feedback_enhance.js"></script>
+
+<!-- ========================================================
+     전역 모달 — 어느 페이지에서든 동작 (섹션 바깥 배치)
+     ======================================================== -->
+
+<!-- 1on1 수락/응답 Modal (상위 관리자 전용) -->
+<div class="modal-overlay" id="oneOnOneRespondModal">
+  <div class="modal" style="width:560px;max-width:95vw">
+    <div class="modal-header" style="background:linear-gradient(135deg,#F0FFF4,#ECFDF5)">
+      <h2 style="color:#10B981"><i class="fas fa-handshake" style="margin-right:8px"></i>1on1 미팅 응답</h2>
+      <button class="modal-close" onclick="closeModal('oneOnOneRespondModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="oo1RespondId" />
+      <div id="oo1RespondInfo" style="background:#F9FAFB;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px"></div>
+      <div class="form-group">
+        <label>수락 여부</label>
+        <div style="display:flex;gap:10px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+            <input type="radio" name="oo1Accept" value="accepted" checked> <span style="color:#10B981;font-weight:600">✅ 수락</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+            <input type="radio" name="oo1Accept" value="declined"> <span style="color:#EF4444;font-weight:600">❌ 거절</span>
+          </label>
+        </div>
+      </div>
+      <div id="oo1AcceptFields">
+        <div class="form-row">
+          <div class="form-group"><label>확정 날짜</label><input type="date" class="form-control" id="oo1ConfirmDate" /></div>
+          <div class="form-group"><label>확정 시간 <span style="font-size:11px;color:var(--text-light);font-weight:400">(직접 입력)</span></label><input type="time" class="form-control" id="oo1ConfirmTime" placeholder="HH:MM" /></div>
+        </div>
+        <div class="form-group"><label>미팅 내용 / 메모</label><textarea class="form-control" rows="3" id="oo1RespondContent" placeholder="미팅 내용, 피드백, 메모를 입력하세요..."></textarea></div>
+        <div class="form-group">
+          <label>미팅 상태</label>
+          <select class="form-control" id="oo1RespondStatus">
+            <option value="scheduled">예정됨</option>
+            <option value="completed">완료</option>
+          </select>
+        </div>
+      </div>
+      <div id="oo1DeclineFields" style="display:none">
+        <div class="form-group"><label>거절 사유</label><textarea class="form-control" rows="2" id="oo1DeclineReason" placeholder="거절 사유를 입력하세요..."></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" style="background:#10B981;border-color:#10B981" onclick="respondOneOnOne()"><i class="fas fa-check"></i> 응답 저장</button>
+      <button class="btn-outline" onclick="closeModal('oneOnOneRespondModal')">취소</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
