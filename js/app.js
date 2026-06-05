@@ -3982,32 +3982,58 @@ function showToast(msg, duration) {
  * - approvalLine 배열 중 userId === CURRENT_USER.id인 step이 있고
  *   해당 step의 status가 'waiting'이며, 앞 step이 모두 approved인 경우
  */
-// ── approvalLine 자동 복구: 저장된 IDP에 approvalLine이 없을 때 재생성 ──
-function _repairApprovalLine(idp) {
-  if (idp.approvalLine && idp.approvalLine.length > 0) return; // 이미 있으면 패스
+// ── 합의라인이 구버전(3단계 or C2밴드 사용자 포함)인지 판별 ──
+function _isLegacyApprovalLine(idp) {
+  const line = idp.approvalLine || [];
+  if (line.length === 0) return false; // 비어있는 건 별도 처리
+  if (line.length >= 3) return true;   // 3단계 이상이면 구버전
+  // 합의라인에 C2 밴드 사용자가 포함되면 구버전
+  const allUsers = (typeof USERS_DB !== 'undefined') ? USERS_DB : [];
+  return line.some(step => {
+    const u = allUsers.find(x => x.id === step.userId);
+    return u && u.band === 'C2';
+  });
+}
+
+// ── approvalLine 자동 복구: 없거나 구버전이면 재생성 ──
+function _repairApprovalLine(idp, forceRebuild) {
+  const isEmpty  = !idp.approvalLine || idp.approvalLine.length === 0;
+  const isLegacy = _isLegacyApprovalLine(idp);
+
+  if (!isEmpty && !isLegacy && !forceRebuild) return; // 정상 라인이면 패스
+
   const submitter = (typeof USERS_DB !== 'undefined' ? USERS_DB : []).find(u => u.id === idp.userId);
   if (!submitter) return;
+
   const line = typeof getApprovalLineEnhanced === 'function'
     ? getApprovalLineEnhanced(submitter)
     : (typeof getApprovalLine === 'function' ? getApprovalLine(submitter) : []);
+
   if (line.length > 0) {
+    const reason = isEmpty ? '비어있음' : isLegacy ? '구버전(C2포함/3단계)' : '강제재생성';
     idp.approvalLine = line.map(s => ({ ...s, status: 'waiting', date: null, comment: '' }));
-    console.log('[ApprovalRepair] approvalLine 자동 복구:', idp.id, '→', idp.approvalLine.map(s=>s.name).join(' → '));
+    console.log('[ApprovalRepair]', reason, '→ 재생성:', idp.id,
+      '|', idp.approvalLine.map(s => s.name + '(' + s.role + ')').join(' → '));
   }
 }
 
 // ── 제출된 모든 IDP의 approvalLine 일괄 복구 ──
-function repairAllApprovalLines() {
+// forceRebuild=true 이면 기존 라인 유무와 무관하게 전부 재생성
+function repairAllApprovalLines(forceRebuild) {
   let repaired = 0;
   (typeof IDP_LIST !== 'undefined' ? IDP_LIST : []).forEach(idp => {
     if (idp.status === 'pending-approval' || idp.status === 'mid-approved') {
+      const isEmpty  = !idp.approvalLine || idp.approvalLine.length === 0;
+      const isLegacy = _isLegacyApprovalLine(idp);
+      if (!isEmpty && !isLegacy && !forceRebuild) return; // 정상 라인 스킵
       const before = (idp.approvalLine || []).length;
-      _repairApprovalLine(idp);
-      if ((idp.approvalLine || []).length > before) repaired++;
+      _repairApprovalLine(idp, forceRebuild);
+      const after = (idp.approvalLine || []).length;
+      if (after !== before || isLegacy || forceRebuild) repaired++;
     }
   });
   if (repaired > 0) {
-    console.log('[ApprovalRepair] 총', repaired, '건 approvalLine 복구 완료 → Firebase 저장');
+    console.log('[ApprovalRepair] 총', repaired, '건 approvalLine 재생성 완료 → Firebase 저장');
     if (typeof saveAllDataAsync === 'function') saveAllDataAsync();
     else if (typeof saveAllData === 'function') saveAllData();
   }
