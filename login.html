@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IDP 시스템 | 로그인</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script>
+    (function() { emailjs.init({ publicKey: '7BhJeoCriI6xjvf1F' }); })();
+  </script>
+  <style>
+    :root {
+      --primary: #4F6EF7;
+      --primary-dark: #3451d1;
+      --primary-light: #EEF1FF;
+      --secondary: #6C47FF;
+      --success: #22C55E;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+      --bg: #F0F4FF;
+      --border: #E5E7EB;
+      --text: #1A1D2E;
+      --text-sub: #6B7280;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image: radial-gradient(ellipse at 20% 30%, rgba(79,110,247,0.12) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 70%, rgba(108,71,255,0.10) 0%, transparent 60%);
+    }
+    .login-wrap {
+      display: flex;
+      width: 960px; max-width: 98vw;
+      min-height: 580px;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(79,110,247,0.14);
+    }
+
+    /* ---- Left Panel ---- */
+    .login-left {
+      flex: 1;
+      background: linear-gradient(145deg, #4F6EF7 0%, #6C47FF 100%);
+      padding: 48px 40px;
+      display: flex; flex-direction: column;
+      color: white;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 48px; }
+    .brand-icon {
+      width: 44px; height: 44px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .brand-name { font-size: 18px; font-weight: 700; }
+    .brand-year { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+    .left-headline { font-size: 26px; font-weight: 700; line-height: 1.4; margin-bottom: 16px; }
+    .left-desc { font-size: 13.5px; opacity: 0.85; line-height: 1.7; margin-bottom: 40px; }
+    .feature-list { display: flex; flex-direction: column; gap: 14px; margin-top: auto; }
+    .feature-item { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+    .feature-icon {
+      width: 32px; height: 32px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+
+    /* ---- Right Panel ---- */
+    .login-right {
+      width: 440px;
+      background: white;
+      padding: 40px 36px;
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+    .form-tab-wrap { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 24px; flex-shrink: 0; }
+    .form-tab {
+      flex: 1; padding: 10px;
+      text-align: center;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+      color: var(--text-sub);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+    .form-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .form-panel { display: none; }
+    .form-panel.active { display: block; }
+
+    h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: var(--text); }
+    .sub-text { font-size: 12.5px; color: var(--text-sub); margin-bottom: 20px; line-height: 1.5; }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block; font-size: 12.5px; font-weight: 600;
+      color: var(--text); margin-bottom: 5px;
+    }
+    .req { color: var(--danger); margin-left: 2px; }
+
+    .input-wrap { position: relative; }
+    .input-wrap i {
+      position: absolute; left: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-sub); font-size: 13px;
+    }
+    .input-wrap input {
+      width: 100%; padding: 10px 12px 10px 36px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 13.5px; font-family: inherit;
+      color: var(--text);
+      transition: all 0.2s;
+    }
+    .input-wrap input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.1); }
+    .input-wrap input.valid { border-color: var(--success); }
+    .input-wrap input.invalid { border-color: var(--danger); }
+
+    /* 인증 버튼 포함된 이메일 인풋 */
+    .email-verify-wrap { display: flex; gap: 8px; align-items: flex-start; }
+    .email-verify-wrap .input-wrap { flex: 1; }
+    .btn-verify {
+      padding: 10px 14px;
+      background: var(--primary);
+      color: white; border: none;
+      border-radius: 10px;
+      font-size: 12px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      white-space: nowrap;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .btn-verify:hover { background: var(--primary-dark); }
+    .btn-verify:disabled { background: #9CA3AF; cursor: not-allowed; }
+
+    /* 인증 코드 입력 */
+    .code-wrap { display: flex; gap: 8px; margin-top: 8px; }
+    .code-input {
+      flex: 1; padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 16px; font-family: monospace;
+      letter-spacing: 4px; text-align: center;
+      color: var(--text);
+      transition: all 0.2s;
+    }
+    .code-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.1); }
+    .btn-check-code {
+      padding: 10px 14px;
+      background: white;
+      color: var(--primary); border: 1.5px solid var(--primary);
+      border-radius: 10px;
+      font-size: 12px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      white-space: nowrap;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .btn-check-code:hover { background: var(--primary-light); }
+
+    .verify-status { font-size: 12px; margin-top: 6px; display: none; }
+    .verify-status.success { color: var(--success); display: flex; align-items: center; gap: 4px; }
+    .verify-status.error { color: var(--danger); display: flex; align-items: center; gap: 4px; }
+    .verify-status.info { color: var(--primary); display: flex; align-items: center; gap: 4px; }
+
+    .timer { font-size: 11px; color: var(--danger); font-weight: 700; margin-left: 6px; }
+
+    /* 선택 드롭다운 */
+    select.form-select {
+      width: 100%; padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 13.5px; font-family: inherit;
+      color: var(--text); background: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    select.form-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.1); }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+    /* 밴드 선택 버튼 */
+    .band-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .band-btn {
+      padding: 10px 6px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: white;
+      cursor: pointer; font-family: inherit;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .band-btn:hover { border-color: var(--primary); background: var(--primary-light); }
+    .band-btn.selected { border-color: var(--primary); background: var(--primary-light); }
+    .band-btn .band-code { font-size: 15px; font-weight: 800; color: var(--primary); }
+    .band-btn.selected .band-code { color: var(--primary-dark); }
+
+    /* 소속 구분선 */
+    .org-group-label {
+      font-size: 11px; font-weight: 700;
+      color: var(--text-sub);
+      padding: 4px 0 2px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .org-group-label::before {
+      content: ''; display: inline-block;
+      width: 3px; height: 12px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+
+    /* 버튼 */
+    .btn-primary {
+      width: 100%; padding: 13px;
+      background: var(--primary);
+      color: white; border: none;
+      border-radius: 10px;
+      font-size: 14px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      transition: all 0.2s;
+      margin-top: 4px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(79,110,247,0.3); }
+    .btn-primary:disabled { background: #9CA3AF; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .error-msg { color: var(--danger); font-size: 12px; margin-bottom: 8px; display: none; padding: 8px 12px; background: #FEF2F2; border-radius: 8px; border-left: 3px solid var(--danger); }
+    .success-msg { color: var(--success); font-size: 12px; text-align: center; margin-top: 10px; display: none; padding: 10px; background: #F0FFF4; border-radius: 8px; }
+
+    /* 비밀번호 강도 */
+    .pw-strength { margin-top: 6px; display: none; }
+    .pw-strength-bar { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; margin-bottom: 4px; }
+    .pw-strength-fill { height: 100%; border-radius: 2px; transition: all 0.3s; width: 0; }
+    .pw-strength-text { font-size: 11px; color: var(--text-sub); }
+
+    /* 진행 단계 표시 */
+    .signup-steps {
+      display: flex; align-items: center; gap: 4px;
+      margin-bottom: 20px;
+    }
+    .signup-step {
+      flex: 1; height: 4px; border-radius: 2px;
+      background: var(--border); transition: all 0.3s;
+    }
+    .signup-step.active { background: var(--primary); }
+    .signup-step.done { background: var(--success); }
+
+    .section-divider {
+      border: none; border-top: 1px dashed var(--border);
+      margin: 16px 0;
+    }
+
+    @media (max-width: 760px) {
+      .login-left { display: none; }
+      .login-right { width: 100%; max-height: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+
+  <!-- ===== Left Panel ===== -->
+  <div class="login-left">
+    <div class="brand">
+      <div class="brand-icon"><i class="fas fa-brain"></i></div>
+      <div>
+        <div class="brand-name">IDP 운영 시스템</div>
+        <div class="brand-year">2026 운영 기준</div>
+      </div>
+    </div>
+    <div class="left-headline">역량 성장을<br>체계적으로 관리하세요</div>
+    <div class="left-desc">
+      개인 역량 진단부터 IDP 수립, 실행 피드백,<br>
+      결과 분석까지 — 하나의 플랫폼에서 완결됩니다.
+    </div>
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="feature-icon"><i class="fas fa-book-open"></i></div>
+        <span>직무역량 7개 · 리더십역량 C4–C1 밴드별 체계</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><i class="fas fa-pen-to-square"></i></div>
+        <span>5단계 IDP 작성 위자드</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><i class="fas fa-comments"></i></div>
+        <span>1on1 기록 · 증빙 업로드 · 활동 평가</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><i class="fas fa-chart-bar"></i></div>
+        <span>결과 분석 & 최종 평가 통보</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Right Panel ===== -->
+  <div class="login-right">
+    <div class="form-tab-wrap">
+      <div class="form-tab active" onclick="switchTab('login')">로그인</div>
+      <div class="form-tab" onclick="switchTab('signup')">회원가입</div>
+    </div>
+
+    <!-- ========== 로그인 폼 ========== -->
+    <div class="form-panel active" id="loginPanel">
+      <h2>안녕하세요 👋</h2>
+      <p class="sub-text">회사 이메일과 비밀번호로 로그인하세요.</p>
+
+      <form id="loginForm" onsubmit="event.preventDefault(); doLogin();" autocomplete="on">
+      <div class="form-group">
+        <label>이메일</label>
+        <div class="input-wrap">
+          <i class="fas fa-envelope"></i>
+          <input type="email" id="loginEmail" name="email" placeholder="회사 이메일 입력" autocomplete="username" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>비밀번호</label>
+        <div class="input-wrap">
+          <i class="fas fa-lock"></i>
+          <input type="password" id="loginPw" name="password" placeholder="비밀번호 입력" autocomplete="current-password" />
+        </div>
+      </div>
+      <p class="error-msg" id="loginError">이메일 또는 비밀번호가 일치하지 않습니다.</p>
+      <button type="submit" class="btn-primary">
+        <i class="fas fa-sign-in-alt"></i> 로그인
+      </button>
+      </form>
+
+      <div style="text-align:center; margin-top:16px;">
+        <a href="manual.html" target="_blank"
+           style="font-size:12px; color:var(--text-sub); text-decoration:none; display:inline-flex; align-items:center; gap:5px; opacity:0.75; transition:opacity 0.2s;"
+           onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.75'">
+          <i class="fas fa-book-open" style="font-size:11px;"></i>
+          사용자 매뉴얼 보기
+        </a>
+      </div>
+
+    </div>
+
+    <!-- ========== 회원가입 폼 ========== -->
+    <div class="form-panel" id="signupPanel">
+      <h2>회원가입</h2>
+      <p class="sub-text">
+        <i class="fas fa-shield-alt" style="color:var(--primary)"></i>
+        회사 이메일 인증 후 가입이 완료됩니다.
+      </p>
+      <form onsubmit="event.preventDefault(); doSignup();">
+
+      <!-- 진행 단계 바 -->
+      <div class="signup-steps">
+        <div class="signup-step active" id="step-bar-1"></div>
+        <div class="signup-step" id="step-bar-2"></div>
+        <div class="signup-step" id="step-bar-3"></div>
+      </div>
+
+      <!-- ① 기본 정보 -->
+      <div class="form-group">
+        <label>이름 <span class="req">*</span></label>
+        <div class="input-wrap">
+          <i class="fas fa-user"></i>
+          <input type="text" id="regName" placeholder="실명을 입력하세요" autocomplete="name"
+            oninput="updateStepBars()" />
+        </div>
+      </div>
+
+      <!-- 밴드 선택 -->
+      <div class="form-group">
+        <label>밴드 <span class="req">*</span></label>
+        <div class="band-selector" id="bandSelector">
+          <button type="button" class="band-btn" data-band="C4" onclick="selectBand('C4', this)">
+            <span class="band-code">C4</span>
+          </button>
+          <button type="button" class="band-btn" data-band="C3" onclick="selectBand('C3', this)">
+            <span class="band-code">C3</span>
+          </button>
+          <button type="button" class="band-btn" data-band="C2" onclick="selectBand('C2', this)">
+            <span class="band-code">C2</span>
+          </button>
+          <button type="button" class="band-btn" data-band="C1" onclick="selectBand('C1', this)">
+            <span class="band-code">C1</span>
+          </button>
+        </div>
+        <input type="hidden" id="regBand" />
+      </div>
+
+      <!-- 직책 -->
+      <div class="form-group">
+        <label>직책 <span class="req">*</span></label>
+        <select class="form-select" id="regPosition" onchange="updateStepBars()">
+          <option value="">-- 직책을 선택하세요 --</option>
+          <option value="본부장">본부장</option>
+          <option value="사업부장">사업부장</option>
+          <option value="팀장">팀장</option>
+          <option value="파트장">파트장</option>
+          <option value="매니저">매니저</option>
+          <option value="팀원">팀원</option>
+        </select>
+      </div>
+
+      <!-- 소속 -->
+      <div class="form-group">
+        <label>소속 <span class="req">*</span></label>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <!-- 사업부 -->
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:11.5px; font-weight:700; color:var(--text-sub); min-width:36px;">사업부</span>
+            <select class="form-select" id="regDeptDiv" style="flex:1;" onchange="onDeptChange()">
+              <option value="">-- 선택 --</option>
+              <option value="제1사업부">제1사업부</option>
+              <option value="제2사업부">제2사업부</option>
+              <option value="사업본부">사업본부</option>
+            </select>
+          </div>
+          <!-- 팀 -->
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:11.5px; font-weight:700; color:var(--text-sub); min-width:36px;">팀</span>
+            <select class="form-select" id="regDeptTeam" style="flex:1;" onchange="onTeamChange()">
+              <option value="">-- 선택 --</option>
+              <option value="MI팀">MI팀</option>
+              <option value="DS팀">DS팀</option>
+              <option value="DP팀">DP팀</option>
+              <option value="Gen AI팀">Gen AI팀</option>
+              <option value="경영지원팀">경영지원팀</option>
+            </select>
+          </div>
+          <!-- 파트 -->
+          <div style="display:flex; align-items:center; gap:8px;" id="partRow">
+            <span style="font-size:11.5px; font-weight:700; color:var(--text-sub); min-width:36px;">파트</span>
+            <select class="form-select" id="regDeptPart" style="flex:1;" onchange="onDeptChange()" disabled>
+              <option value="">-- 팀 선택 후 표시 --</option>
+            </select>
+          </div>
+        </div>
+        <input type="hidden" id="regDept" />
+        <div id="deptError" style="display:none; font-size:11.5px; color:var(--danger); margin-top:5px;">
+          <i class="fas fa-exclamation-circle"></i> 사업부·팀·파트 중 하나 이상 선택해주세요.
+        </div>
+      </div>
+
+      <hr class="section-divider" />
+
+      <!-- ② 이메일 인증 -->
+      <div class="form-group">
+        <label>회사 이메일 <span class="req">*</span>
+          <span id="emailVerifiedBadge" style="display:none;margin-left:6px;font-size:11px;color:var(--success);font-weight:700">
+            <i class="fas fa-check-circle"></i> 인증 완료
+          </span>
+        </label>
+        <div class="email-verify-wrap">
+          <div class="input-wrap">
+            <i class="fas fa-envelope"></i>
+            <input type="email" id="regEmail" placeholder="회사 이메일 입력" autocomplete="username"
+              oninput="onEmailInput()" />
+          </div>
+          <button class="btn-verify" id="btnSendCode" onclick="sendVerifyCode()" disabled>
+            <i class="fas fa-paper-plane"></i> 코드 전송
+          </button>
+        </div>
+
+        <!-- 인증 코드 입력 (코드 전송 후 표시) -->
+        <div id="codeSection" style="display:none">
+          <div class="code-wrap">
+            <input type="text" class="code-input" id="verifyCodeInput"
+              maxlength="6" placeholder="123456" autocomplete="one-time-code"
+              oninput="this.value=this.value.replace(/\D/g,'')"
+              onkeydown="if(event.key==='Enter') checkVerifyCode()" />
+            <button class="btn-check-code" onclick="checkVerifyCode()">
+              <i class="fas fa-check"></i> 확인
+            </button>
+          </div>
+          <div class="verify-status info" id="verifyInfo">
+            <i class="fas fa-info-circle"></i>
+            <span id="verifyInfoText">입력하신 이메일로 6자리 코드를 발송했습니다.</span>
+            <span class="timer" id="verifyTimer"></span>
+          </div>
+          <div class="verify-status success" id="verifySuccess" style="display:none">
+            <i class="fas fa-check-circle"></i> 이메일 인증이 완료되었습니다!
+          </div>
+          <div class="verify-status error" id="verifyError" style="display:none">
+            <i class="fas fa-times-circle"></i> 인증 코드가 올바르지 않습니다.
+          </div>
+        </div>
+      </div>
+
+      <hr class="section-divider" />
+
+      <!-- ③ 비밀번호 -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>비밀번호 <span class="req">*</span></label>
+          <div class="input-wrap">
+            <i class="fas fa-lock"></i>
+            <input type="password" id="regPw" placeholder="6자 이상" autocomplete="new-password"
+              oninput="checkPwStrength(this.value); updateStepBars()" />
+          </div>
+          <div class="pw-strength" id="pwStrength">
+            <div class="pw-strength-bar">
+              <div class="pw-strength-fill" id="pwStrengthFill"></div>
+            </div>
+            <div class="pw-strength-text" id="pwStrengthText"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>비밀번호 확인 <span class="req">*</span></label>
+          <div class="input-wrap">
+            <i class="fas fa-lock"></i>
+            <input type="password" id="regPw2" placeholder="재입력" autocomplete="new-password"
+              oninput="checkPwMatch(); updateStepBars()" />
+          </div>
+          <div class="verify-status" id="pwMatchStatus"></div>
+        </div>
+      </div>
+
+      <p class="error-msg" id="signupError"></p>
+      <button type="submit" class="btn-primary" id="btnSignup" disabled>
+        <i class="fas fa-user-plus"></i> 가입 완료
+      </button>
+      </form>
+      <p class="success-msg" id="signupSuccess">
+        <i class="fas fa-check-circle"></i>
+        가입이 완료되었습니다! 로그인 탭으로 이동합니다.
+      </p>
+    </div><!-- /signupPanel -->
+  </div><!-- /login-right -->
+</div><!-- /login-wrap -->
+
+<script src="js/data.js"></script>
+<script src="js/firebase.js"></script>
+<script>
+// =============================================
+//  초기화: localStorage에서 USERS_DB 복원
+// =============================================
+(function() {
+  try {
+    if (typeof loadUsersDB === 'function') loadUsersDB();
+  } catch(e) {
+    console.warn('[Login] USERS_DB 복원 실패, 기본값 사용:', e);
+  }
+  // 디버그: 등록된 사용자 수 확인
+  if (typeof USERS_DB !== 'undefined') {
+    console.log('[Login] USERS_DB 로드 완료:', USERS_DB.length, '명');
+  }
+})();
+// =============================================
+//  탭 전환
+// =============================================
+function switchTab(tab) {
+  document.querySelectorAll('.form-tab').forEach((t, i) =>
+    t.classList.toggle('active', (tab==='login' && i===0)||(tab==='signup' && i===1))
+  );
+  document.getElementById('loginPanel').classList.toggle('active', tab==='login');
+  document.getElementById('signupPanel').classList.toggle('active', tab==='signup');
+}
+
+// =============================================
+//  로그인
+// =============================================
+function doLogin() {
+  const email = (document.getElementById('loginEmail').value || '').trim();
+  const pw    = document.getElementById('loginPw').value || '';
+  const errEl = document.getElementById('loginError');
+
+  // 입력값 기본 검증
+  if (!email || !pw) {
+    errEl.textContent = '이메일과 비밀번호를 입력해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // USERS_DB 최신화: localStorage에서 다시 로드
+  try {
+    if (typeof loadUsersDB === 'function') loadUsersDB();
+  } catch(e) {
+    console.warn('[doLogin] USERS_DB 재로드 실패:', e);
+  }
+
+  // 사용자 검색 (대소문자 구분 없이 이메일 비교)
+  let user = null;
+  if (typeof USERS_DB !== 'undefined' && Array.isArray(USERS_DB)) {
+    user = USERS_DB.find(u =>
+      u && u.email && u.password &&
+      u.email.toLowerCase() === email.toLowerCase() &&
+      u.password === pw
+    );
+  }
+
+  if (!user) {
+    // 추가 디버그: 이메일만 일치하는 경우 패스워드 문제 안내
+    let emailMatch = false;
+    if (typeof USERS_DB !== 'undefined' && Array.isArray(USERS_DB)) {
+      emailMatch = USERS_DB.some(u => u && u.email && u.email.toLowerCase() === email.toLowerCase());
+    }
+    if (emailMatch) {
+      errEl.textContent = '비밀번호가 일치하지 않습니다.';
+    } else {
+      errEl.textContent = '등록되지 않은 이메일입니다. 이메일을 확인해주세요.';
+    }
+    errEl.style.display = 'block';
+    const pwInput = document.getElementById('loginPw');
+    if (pwInput) {
+      pwInput.style.borderColor = 'var(--danger)';
+      setTimeout(() => { pwInput.style.borderColor = ''; }, 1500);
+    }
+    return;
+  }
+
+  errEl.style.display = 'none';
+
+  // 세션에 사용자 정보 저장
+  try {
+    sessionStorage.setItem('idp_user', JSON.stringify(user));
+  } catch(e) {
+    console.error('[Login] sessionStorage 저장 실패:', e);
+    errEl.textContent = '로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // 페이지 이동 — role을 USERS_DB 최신값 기준으로 판단
+  const dest = (user.role === 'admin') ? 'admin.html' : 'index.html';
+  window.location.href = dest;
+}
+
+// =============================================
+//  밴드 선택
+// =============================================
+let selectedBand = '';
+function selectBand(band, el) {
+  document.querySelectorAll('.band-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedBand = band;
+  document.getElementById('regBand').value = band;
+  updateStepBars();
+}
+
+// =============================================
+//  이메일 입력 감지 → 코드 전송 버튼 활성화
+// =============================================
+function onEmailInput() {
+  const email = document.getElementById('regEmail').value.trim();
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  document.getElementById('btnSendCode').disabled = !valid;
+  // 이메일 변경 시 인증 초기화
+  if (emailVerified) {
+    emailVerified = false;
+    document.getElementById('emailVerifiedBadge').style.display = 'none';
+    document.getElementById('codeSection').style.display = 'none';
+    document.getElementById('verifySuccess').style.display = 'none';
+    document.getElementById('verifyInfo').style.display = 'none';
+    updateStepBars();
+  }
+  updateSignupBtn();
+}
+
+// =============================================
+//  보안 코드 발송 (시뮬레이션)
+// =============================================
+let verifyCode    = '';
+let emailVerified = false;
+let timerInterval = null;
+
+function sendVerifyCode() {
+  const email   = document.getElementById('regEmail').value.trim();
+  const name    = document.getElementById('regName').value.trim() || '회원';
+  if (!email) return;
+
+  // 이미 인증된 경우
+  if (emailVerified) { showVerifySuccess(); return; }
+
+  // 6자리 랜덤 코드 생성
+  verifyCode    = String(Math.floor(100000 + Math.random() * 900000));
+  emailVerified = false;
+
+  const btn = document.getElementById('btnSendCode');
+
+  // UI: 발송 중 상태
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 발송 중...';
+  document.getElementById('codeSection').style.display = 'none';
+  document.getElementById('verifyError').style.display = 'none';
+  document.getElementById('verifySuccess').style.display = 'none';
+
+  // =============================================
+  //  EmailJS 실제 발송
+  // =============================================
+  emailjs.send('service_8kz0gwq', 'template_lp60zip', {
+    to_email:    email,
+    to_name:     name,
+    verify_code: verifyCode
+  })
+  .then(() => {
+    // 발송 성공 → 코드 입력 섹션 표시
+    document.getElementById('codeSection').style.display = 'block';
+    document.getElementById('verifyInfo').style.display  = 'flex';
+    document.getElementById('verifyCodeInput').value     = '';
+    document.getElementById('verifyInfoText').textContent =
+      `"${email}" 으로 6자리 인증 코드를 발송했습니다.`;
+
+    btn.innerHTML = '<i class="fas fa-clock"></i> 재전송 대기';
+
+    // 타이머 3분
+    let remaining = 180;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      remaining--;
+      const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+      const s = String(remaining % 60).padStart(2, '0');
+      document.getElementById('verifyTimer').textContent = `(${m}:${s})`;
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        document.getElementById('verifyTimer').textContent = '(만료)';
+        document.getElementById('verifyInfo').style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-redo"></i> 재전송';
+        verifyCode = '';
+      }
+    }, 1000);
+
+    // 30초 후 재전송 허용
+    setTimeout(() => {
+      if (!emailVerified) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-redo"></i> 재전송';
+      }
+    }, 30000);
+  })
+  .catch((err) => {
+    // 발송 실패
+    console.error('[EmailJS] 발송 실패:', err);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> 코드 전송';
+    document.getElementById('codeSection').style.display = 'block';
+    const errBox = document.getElementById('verifyError');
+    errBox.innerHTML = '<i class="fas fa-times-circle"></i> 이메일 발송에 실패했습니다. 주소를 확인하거나 잠시 후 다시 시도해주세요.';
+    errBox.style.display = 'flex';
+  });
+}
+
+// =============================================
+//  코드 확인
+// =============================================
+function checkVerifyCode() {
+  const input = document.getElementById('verifyCodeInput').value.trim();
+  if (!input) return;
+
+  if (input === verifyCode && verifyCode !== '') {
+    emailVerified = true;
+    clearInterval(timerInterval);
+    showVerifySuccess();
+    updateSignupBtn();
+    updateStepBars();
+  } else {
+    const errBox = document.getElementById('verifyError');
+    errBox.innerHTML = '<i class="fas fa-times-circle"></i> 인증 코드가 올바르지 않습니다.';
+    errBox.style.display = 'flex';
+    document.getElementById('verifySuccess').style.display = 'none';
+    const codeInput = document.getElementById('verifyCodeInput');
+    codeInput.style.borderColor = 'var(--danger)';
+    setTimeout(() => { codeInput.style.borderColor = ''; }, 1500);
+  }
+}
+
+function showVerifySuccess() {
+  document.getElementById('verifyInfo').style.display = 'none';
+  document.getElementById('verifyError').style.display = 'none';
+  document.getElementById('verifySuccess').style.display = 'flex';
+  document.getElementById('codeSection').style.display = 'block';
+  document.getElementById('emailVerifiedBadge').style.display = 'inline-flex';
+  document.getElementById('btnSendCode').disabled = true;
+  document.getElementById('btnSendCode').innerHTML = '<i class="fas fa-check"></i> 인증됨';
+  document.getElementById('regEmail').style.borderColor = 'var(--success)';
+}
+
+// =============================================
+//  비밀번호 강도
+// =============================================
+function checkPwStrength(pw) {
+  const el = document.getElementById('pwStrength');
+  const fill = document.getElementById('pwStrengthFill');
+  const text = document.getElementById('pwStrengthText');
+  if (!pw) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+
+  let score = 0;
+  if (pw.length >= 6) score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+  const levels = [
+    { pct: '20%', color: '#EF4444', label: '매우 약함' },
+    { pct: '40%', color: '#F59E0B', label: '약함' },
+    { pct: '60%', color: '#F59E0B', label: '보통' },
+    { pct: '80%', color: '#22C55E', label: '강함' },
+    { pct: '100%', color: '#22C55E', label: '매우 강함' },
+  ];
+  const lv = levels[Math.min(score - 1, 4)] || levels[0];
+  fill.style.width = lv.pct;
+  fill.style.background = lv.color;
+  text.textContent = lv.label;
+  text.style.color = lv.color;
+}
+
+// =============================================
+//  비밀번호 일치 확인
+// =============================================
+function checkPwMatch() {
+  const pw  = document.getElementById('regPw').value;
+  const pw2 = document.getElementById('regPw2').value;
+  const el  = document.getElementById('pwMatchStatus');
+  if (!pw2) { el.className = 'verify-status'; el.style.display = 'none'; return; }
+  if (pw === pw2) {
+    el.className = 'verify-status success';
+    el.innerHTML = '<i class="fas fa-check-circle"></i> 비밀번호가 일치합니다.';
+  } else {
+    el.className = 'verify-status error';
+    el.innerHTML = '<i class="fas fa-times-circle"></i> 비밀번호가 일치하지 않습니다.';
+  }
+  updateSignupBtn();
+}
+
+// =============================================
+//  소속 드롭다운 변경 처리
+// =============================================
+const TEAM_PARTS = {
+  'MI팀':    ['MES파트', 'MAS파트'],
+  'DS팀':    ['SD파트', 'SM파트'],
+  'DP팀':    [],   // 해당사항없음
+  'Gen AI팀':['AI Solution파트', 'M365파트'],
+  '경영지원팀':['기획마케팅파트', '경영지원파트']
+};
+
+function onTeamChange() {
+  const team    = document.getElementById('regDeptTeam').value;
+  const partSel = document.getElementById('regDeptPart');
+
+  // 파트 초기화
+  partSel.innerHTML = '';
+  partSel.value = '';
+
+  if (!team) {
+    partSel.innerHTML = '<option value="">-- 팀 선택 후 표시 --</option>';
+    partSel.disabled = true;
+  } else {
+    const list = TEAM_PARTS[team] || [];
+    if (list.length === 0) {
+      // DP팀처럼 파트 없는 경우
+      partSel.innerHTML = '<option value="">해당사항 없음</option>';
+      partSel.disabled = true;
+    } else {
+      partSel.innerHTML = '<option value="">-- 선택 --</option>' +
+        list.map(p => `<option value="${p}">${p}</option>`).join('');
+      partSel.disabled = false;
+    }
+  }
+  onDeptChange();
+}
+
+function onDeptChange() {
+  const div  = document.getElementById('regDeptDiv').value;
+  const team = document.getElementById('regDeptTeam').value;
+  const part = document.getElementById('regDeptPart').value;
+  // 선택된 값들을 조합해 hidden input에 저장
+  const parts = [div, team, part].filter(v => v);
+  document.getElementById('regDept').value = parts.join(' / ');
+  // 에러 메시지 숨기기
+  document.getElementById('deptError').style.display = 'none';
+  updateStepBars();
+}
+
+// =============================================
+//  진행 단계 바 & 가입 버튼 활성화
+// =============================================
+function updateStepBars() {
+  const name     = document.getElementById('regName').value.trim();
+  const band     = document.getElementById('regBand').value;
+  const position = document.getElementById('regPosition').value;
+  const dept     = document.getElementById('regDept').value;
+  const pw       = document.getElementById('regPw').value;
+  const pw2      = document.getElementById('regPw2').value;
+
+  const step1Done = name && band && position && dept;
+  const step2Done = emailVerified;
+  const step3Done = pw.length >= 6 && pw === pw2;
+
+  setStepBar(1, step1Done ? 'done' : 'active');
+  setStepBar(2, step2Done ? 'done' : (step1Done ? 'active' : ''));
+  setStepBar(3, step3Done ? 'done' : (step2Done ? 'active' : ''));
+
+  updateSignupBtn();
+}
+
+function setStepBar(n, state) {
+  const el = document.getElementById('step-bar-' + n);
+  el.className = 'signup-step' + (state ? ' ' + state : '');
+}
+
+function updateSignupBtn() {
+  const name     = document.getElementById('regName').value.trim();
+  const band     = document.getElementById('regBand').value;
+  const position = document.getElementById('regPosition').value;
+  const dept     = document.getElementById('regDept').value;
+  const pw       = document.getElementById('regPw').value;
+  const pw2      = document.getElementById('regPw2').value;
+
+  const ok = name && band && position && dept && emailVerified && pw.length >= 6 && pw === pw2;
+  document.getElementById('btnSignup').disabled = !ok;
+}
+
+// =============================================
+//  회원가입 처리
+// =============================================
+function doSignup() {
+  const name     = document.getElementById('regName').value.trim();
+  const email    = document.getElementById('regEmail').value.trim();
+  const pw       = document.getElementById('regPw').value;
+  const pw2      = document.getElementById('regPw2').value;
+  const dept     = document.getElementById('regDept').value;
+  const position = document.getElementById('regPosition').value;
+  const band     = document.getElementById('regBand').value;
+  const errEl    = document.getElementById('signupError');
+
+  // 최종 유효성 검사
+  if (!name)     { showSignupError('이름을 입력해주세요.'); return; }
+  if (!band)     { showSignupError('밴드를 선택해주세요.'); return; }
+  if (!position) { showSignupError('직책을 선택해주세요.'); return; }
+  if (!dept)     { showSignupError('소속을 선택해주세요.'); return; }
+  if (!emailVerified) { showSignupError('이메일 인증을 완료해주세요.'); return; }
+  if (pw.length < 6)  { showSignupError('비밀번호는 6자 이상이어야 합니다.'); return; }
+  if (pw !== pw2)     { showSignupError('비밀번호가 일치하지 않습니다.'); return; }
+  // 관리자 계정 이메일로는 회원가입 불가 (관리자는 시스템에서 직접 부여)
+  const adminUser = typeof DEFAULT_USERS_DB !== 'undefined'
+    ? DEFAULT_USERS_DB.find(u => u.role === 'admin') : null;
+  if (adminUser && email.toLowerCase() === adminUser.email.toLowerCase()) {
+    showSignupError('해당 이메일은 사용할 수 없습니다. 관리자에게 문의하세요.'); return;
+  }
+  if (USERS_DB.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    showSignupError('이미 등록된 이메일입니다.'); return;
+  }
+
+  errEl.style.display = 'none';
+
+  // 역할 자동 설정: C4(본부장·사업부장)·C3(팀장·파트장)는 manager, 나머지는 user
+  const role = (band === 'C4' || band === 'C3') ? 'manager' : 'user';
+
+  const newUser = {
+    id: 'u-' + Date.now(),
+    name, email, password: pw,
+    dept, position, band, role,
+    joinDate: '2026-' + new Date().toISOString().slice(5, 10)
+  };
+  USERS_DB.push(newUser);
+  if (typeof saveUsersDB === 'function') saveUsersDB(); // localStorage 영구 저장
+  document.getElementById('btnSignup').disabled = true;
+
+  // 가입 성공 메시지 표시
+  document.getElementById('signupSuccess').style.display = 'block';
+
+  setTimeout(() => {
+    document.getElementById('signupSuccess').style.display = 'none';
+    switchTab('login');
+    document.getElementById('loginEmail').value = email;
+    // 폼 리셋
+    resetSignupForm();
+  }, 2200);
+}
+
+function showSignupError(msg) {
+  const el = document.getElementById('signupError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+
+function resetSignupForm() {
+  ['regName','regEmail','regPw','regPw2'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('regBand').value = '';
+  document.getElementById('regPosition').value = '';
+  document.getElementById('regDeptDiv').value = '';
+  document.getElementById('regDeptTeam').value = '';
+  document.getElementById('regDeptPart').innerHTML = '<option value="">-- 팀 선택 후 표시 --</option>';
+  document.getElementById('regDeptPart').disabled = true;
+  document.getElementById('regDept').value = '';
+  document.querySelectorAll('.band-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('codeSection').style.display = 'none';
+  document.getElementById('emailVerifiedBadge').style.display = 'none';
+  document.getElementById('btnSendCode').disabled = true;
+  document.getElementById('btnSendCode').innerHTML = '<i class="fas fa-paper-plane"></i> 코드 전송';
+  document.getElementById('pwStrength').style.display = 'none';
+  document.getElementById('btnSignup').disabled = true;
+  emailVerified = false; selectedBand = ''; verifyCode = '';
+  clearInterval(timerInterval);
+  updateStepBars();
+}
+
+// =============================================
+//  자동 로그인 (이미 세션 있는 경우)
+// =============================================
+(function() {
+  try {
+    const sess = sessionStorage.getItem('idp_user');
+    if (!sess) return;
+    const u = JSON.parse(sess);
+    // 유효한 세션인지 확인 (id와 role이 반드시 있어야 함)
+    if (u && u.id && u.role) {
+      window.location.href = u.role === 'admin' ? 'admin.html' : 'index.html';
+    } else {
+      // 손상된 세션 제거
+      sessionStorage.removeItem('idp_user');
+    }
+  } catch(e) {
+    // 세션 파싱 실패 시 제거 후 로그인 페이지 유지
+    try { sessionStorage.removeItem('idp_user'); } catch(e2) {}
+  }
+})();
+</script>
+</body>
+</html>
