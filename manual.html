@@ -1571,11 +1571,11 @@ body{
     <div class="step-row">
       <div class="step-line"><div class="step-dot">3</div></div>
       <div class="step-body">
-        <div class="step-ttl">합의 라인 지정</div>
-        <div class="step-dsc">직속 상위자부터 최종 합의자까지 순서대로 지정합니다. 합의 라인은 최소 1명 이상 지정해야 제출할 수 있습니다.</div>
+        <div class="step-ttl">합의 라인 확인</div>
+        <div class="step-dsc">합의 라인은 밴드·직책에 따라 <strong>2단계로 자동 구성</strong>됩니다. 별도 지정 없이 제출하면 시스템이 적절한 합의자를 자동으로 설정합니다.</div>
         <div class="step-sub">
-          <strong>예시 합의 라인 (김팀원의 경우)</strong><br>
-          1차: 이매니저 (C2 매니저) → 2차: 한파트 (C3 파트장) → 3차: 유팀장 (C4 팀장)
+          <strong>예시 합의 라인 (김팀원 C1의 경우)</strong><br>
+          1차: 한파트 (C3 파트장, 중간합의) → 2차: 유팀장 (C4 팀장, 최종합의)
         </div>
       </div>
     </div>
@@ -1710,23 +1710,75 @@ body{
     </div>
   </div>
   <div class="a-h2"><i class="fas fa-diagram-project" style="color:var(--primary)"></i> 합의 라인 흐름</div>
+  <p class="a-p">합의 라인은 <strong>2단계로 고정</strong>되며, 제출 시 밴드·직책에 따라 자동 생성됩니다. 별도로 지정하지 않아도 시스템이 적합한 합의자를 자동으로 설정합니다.</p>
   <div class="mock-ui">
     <div class="mock-titlebar">
       <div class="mock-dots"><div class="mock-dot r"></div><div class="mock-dot y"></div><div class="mock-dot g"></div></div>
-      <span class="mock-tab">IDP 합의 흐름 예시</span>
+      <span class="mock-tab">IDP 합의 흐름 예시 (김팀원 C1)</span>
     </div>
     <div class="mock-body">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;">
         <div style="padding:8px 14px;background:#EEF2FF;border-radius:8px;border:1.5px solid var(--primary);color:var(--primary);font-weight:700;">김팀원 제출</div>
         <i class="fas fa-arrow-right" style="color:var(--gray-light)"></i>
-        <div style="padding:8px 14px;background:#FFF7ED;border-radius:8px;border:1.5px solid #F59E0B;color:#D97706;font-weight:700;">이매니저 검토 중</div>
+        <div style="padding:8px 14px;background:#FFF7ED;border-radius:8px;border:1.5px solid #F59E0B;color:#D97706;font-weight:700;">한파트 검토 중 <span style="font-size:10px;opacity:0.8;">(1차·중간합의)</span></div>
         <i class="fas fa-arrow-right" style="color:var(--gray-light)"></i>
-        <div style="padding:8px 14px;background:#F9FAFB;border-radius:8px;border:1.5px solid var(--border);color:var(--gray-light);font-weight:600;">한파트 대기</div>
-        <i class="fas fa-arrow-right" style="color:var(--gray-light)"></i>
-        <div style="padding:8px 14px;background:#F9FAFB;border-radius:8px;border:1.5px solid var(--border);color:var(--gray-light);font-weight:600;">유팀장 대기</div>
+        <div style="padding:8px 14px;background:#F9FAFB;border-radius:8px;border:1.5px solid var(--border);color:var(--gray-light);font-weight:600;">유팀장 대기 <span style="font-size:10px;">(2차·최종합의)</span></div>
       </div>
     </div>
   </div>
+
+  <div class="a-h2"><i class="fas fa-table-list" style="color:var(--primary)"></i> 밴드별 합의 라인 규칙</div>
+  <p class="a-p">합의 라인은 IDP 작성자의 <strong>밴드(직급)</strong>와 <strong>직책</strong>에 따라 아래 표와 같이 자동 결정됩니다.</p>
+  <table class="a-table">
+    <thead>
+      <tr>
+        <th>작성자 밴드 / 직책</th>
+        <th>1차 합의 (중간합의)</th>
+        <th>2차 합의 (최종합의)</th>
+        <th>예시</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge" style="background:#EEF2FF;color:var(--primary);border:1px solid var(--primary);">C1</span> 팀원</td>
+        <td>C3 파트장</td>
+        <td>C4 팀장</td>
+        <td>김팀원 → 한파트 → 유팀장</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#EEF2FF;color:var(--primary);border:1px solid var(--primary);">C2</span> 매니저</td>
+        <td>C3 파트장</td>
+        <td>C4 팀장</td>
+        <td>이매니저 → 한파트 → 유팀장</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#EEF2FF;color:var(--primary);border:1px solid var(--primary);">C3</span> 매니저 <span style="font-size:11px;color:var(--gray-light)">(파트장 아님)</span></td>
+        <td>C3 파트장</td>
+        <td>C4 팀장</td>
+        <td>C3매니저 → 한파트 → 유팀장</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#F0FDF4;color:#16A34A;border:1px solid #16A34A;">C3</span> 파트장</td>
+        <td>C4 팀장</td>
+        <td>C4 사업부장</td>
+        <td>한파트 → 유팀장 → 사업부장</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#FFF7ED;color:#D97706;border:1px solid #F59E0B;">C4</span> 팀장</td>
+        <td>C4 사업부장</td>
+        <td>C4 본부장</td>
+        <td>유팀장 → 사업부장 → 본부장</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout info" style="margin-top:12px;">
+    <i class="fas fa-circle-info callout-icon"></i>
+    <div class="callout-body">
+      <strong>자동 생성 기준</strong>
+      합의자는 시스템에 등록된 사용자 목록에서 직책 조건에 맞는 첫 번째 인원이 자동 배정됩니다. 합의자가 조직에 없거나 본인인 경우 해당 단계는 건너뜁니다.
+    </div>
+  </div>
+
   <div class="page-nav">
     <a class="pn-btn" onclick="showPage('p-idpstatus');setSbActive('sb-idpstatus');return false;" href="#">
       <i class="pn-arrow fas fa-arrow-left"></i>
