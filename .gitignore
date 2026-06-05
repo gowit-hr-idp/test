@@ -1,0 +1,26 @@
+# ====================================================
+#  IDP 운영 시스템 - GitHub 업로드 제외 파일 목록
+# ====================================================
+
+# 디버그/테스트용 임시 파일
+test_login.html
+debug_test.html
+debug2.html
+debug3.html
+
+# 내부 작업 지침서
+instructions.md
+
+# 기획 문서 (비공개)
+IDP_기능명세서.csv
+
+# OS / 에디터 생성 파일
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE 설정
+.vscode/
+.idea/
