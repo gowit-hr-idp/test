@@ -799,6 +799,23 @@
     </div>
 
     <div class="adm-grid-2" style="gap:16px">
+      <!-- ★ Firebase DB 완전 초기화 (최우선) -->
+      <div class="adm-card" style="border:2px solid #7C3AED;grid-column:1/-1">
+        <div class="adm-card-header" style="background:#F5F3FF;margin:-20px -20px 20px;padding:16px 20px;border-radius:12px 12px 0 0">
+          <h3 style="color:#7C3AED"><i class="fas fa-fire-alt"></i> Firebase DB 완전 초기화 <span style="font-size:11px;background:#EDE9FE;color:#7C3AED;padding:3px 10px;border-radius:99px;font-weight:700;margin-left:8px">가장 먼저 실행</span></h3>
+        </div>
+        <p style="font-size:13px;color:#374151;line-height:1.8;margin-bottom:16px">
+          Firebase에 저장된 <strong>사용자 DB를 완전히 삭제</strong>하고 data.js의 <strong>기본 사용자(김팀원·이매니저·한파트·유팀장)</strong>로 재등록합니다.<br>
+          IDP·피드백 등 모든 활동 데이터도 함께 초기화됩니다. <strong style="color:#DC2626">이 작업 후 반드시 페이지를 새로고침하세요.</strong>
+        </p>
+        <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <button onclick="admForceResetFirebase()" style="background:#7C3AED;color:#fff;border:none;padding:11px 22px;border-radius:8px;font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px">
+            <i class="fas fa-fire-alt"></i> Firebase DB 초기화 실행
+          </button>
+          <div id="firebaseResetLog" style="flex:1;min-width:220px;font-size:12px;color:#6B7280;background:#F9FAFB;border-radius:8px;padding:10px 14px;line-height:2;display:none"></div>
+        </div>
+      </div>
+
       <!-- 데이터 초기화 -->
       <div class="adm-card" style="border:2px solid #FEE2E2">
         <div class="adm-card-header" style="background:#FEF2F2;margin:-20px -20px 20px;padding:16px 20px;border-radius:12px 12px 0 0">
