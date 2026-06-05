@@ -3297,137 +3297,128 @@ function saveDiagSnapshot(selectedJobId, selectedLeadId) {
 // =============================================
 // 승인 라인
 // =============================================
-const SPECIAL_DEPTS = ['기획마케팅파트', '경영지원파트', '경영지원팀'];
-
 /**
- * IDP 합의 라인 자동 생성 (ORG_DB + USERS_DB 기반)
- * 직원의 소속(bizUnit/dept/part)을 기준으로 조직 내 상위 직책자를 자동 탐색
+ * IDP 합의 라인 자동 생성 (USERS_DB 기반)
  *
- * 합의 라인 규칙:
- *  - C1/C2: 같은 파트의 C3(파트장) → 같은 팀의 C4(팀장) → 같은 사업부의 C4(사업부장/본부장)
- *  - C3: 같은 팀의 C4(팀장) → 같은 사업부의 C4(사업부장/본부장)
- *  - C4팀장: 같은 사업부의 C4(사업부장) → C4(본부장)
+ * ■ 합의 라인 규칙 (2단계 고정)
+ *   ① C1 / C2 / C3매니저 작성자
+ *      - 1차 중간합의 : 같은 파트·팀의 C3 파트장
+ *      - 2차 최종합의 : 같은 팀의 C4 팀장
+ *
+ *   ② C3 파트장 작성자
+ *      - 1차 중간합의 : 같은 팀의 C4 팀장
+ *      - 2차 최종합의 : 같은 사업부의 C4 사업부장
+ *
+ *   ③ C4 팀장 작성자
+ *      - 1차 중간합의 : 같은 사업부의 C4 사업부장
+ *      - 2차 최종합의 : C4 본부장
  */
 function getApprovalLine(user) {
   if (!user) return [];
 
-  // ── approvers 배열이 직접 지정된 경우 우선 사용 (호환성 유지) ──
-  if (user.approvers && Array.isArray(user.approvers) && user.approvers.length > 0) {
-    const posIcons = { '파트장':'👤', '팀장':'🏢', '사업부장':'🏛️', '본부장':'🏛️', '매니저':'👤' };
-    const lastIdx = user.approvers.length - 1;
-    const line = user.approvers.map((uid, idx) => {
-      const approver = (typeof USERS_DB !== 'undefined' ? USERS_DB : []).find(u => u.id === uid);
-      if (!approver) {
-        console.warn('[getApprovalLine] approvers에 없는 userId:', uid, '→ USERS_DB에 없음, 건너뜀');
-        return null;
-      }
-      const isLast = idx === lastIdx;
-      const icon   = posIcons[approver.position] || '👤';
-      return {
-        role:   isLast ? '최종합의' : '중간합의',
-        title:  approver.position,
-        name:   approver.name,
-        userId: approver.id,
-        icon,
-        status: 'waiting',
-        date:   null,
-        comment: ''
-      };
-    }).filter(Boolean);
-
-    // approvers 기반으로 결과가 나왔으면 반환, 비었으면 org 기반으로 fallback
-    if (line.length > 0) return line;
-    console.warn('[getApprovalLine] approvers 기반 합의라인 구성 실패 → org 기반으로 fallback:', user.id);
-  }
-
-  // ── ORG_DB + USERS_DB 기반 자동 탐색 ──
   const allUsers   = (typeof USERS_DB !== 'undefined') ? USERS_DB : [];
-  const myBizUnit  = user.bizUnit  || '';
-  const myDept     = user.dept     || '';
-  const myPart     = user.part     || '';
+  const myId       = user.id;
   const myBand     = user.band     || '';
   const myPosition = user.position || '';
-  const myId       = user.id;
-
-  // 상위 직책자 찾기 헬퍼: 특정 조건의 직원 중 본인 제외
-  const findApprovers = (condition) =>
-    allUsers.filter(u => u.id !== myId && condition(u));
+  const myPart     = user.part     || '';
+  const myDept     = user.dept     || '';
+  const myBizUnit  = user.bizUnit  || '';
 
   const posIcons = { '파트장':'👤', '팀장':'🏢', '사업부장':'🏛️', '본부장':'🏛️', '매니저':'👤', 'HR매니저':'👤' };
 
+  // 단계 객체 생성 헬퍼
   const toStep = (approver, role) => ({
     role,
-    title:  approver.position,
-    name:   approver.name,
-    userId: approver.id,
-    icon:   posIcons[approver.position] || '👤',
-    status: 'waiting',
-    date:   null,
+    title:   approver.position,
+    name:    approver.name,
+    userId:  approver.id,
+    icon:    posIcons[approver.position] || '👤',
+    status:  'waiting',
+    date:    null,
     comment: ''
   });
 
+  // 조건에 맞는 첫 번째 사용자 반환 (본인 제외)
+  const findFirst = (condition) =>
+    allUsers.find(u => u.id !== myId && condition(u)) || null;
+
+  // 직책 포함 여부 체크 헬퍼
+  const hasPos = (u, ...keywords) => keywords.some(k => (u.position || '').includes(k));
+
   const line = [];
 
-  if (myBand === 'C1' || myBand === 'C2') {
-    // C1/C2: 같은 파트/팀 C3 파트장 → 같은 팀 C4 팀장 → 사업부 C4 사업부장/본부장
-    if (myPart) {
-      const partLeaders = findApprovers(u =>
-        u.part === myPart && u.dept === myDept && u.band === 'C3' &&
-        (u.position === '파트장' || u.position.includes('파트장'))
-      );
-      partLeaders.forEach(u => line.push(toStep(u, '중간합의')));
-    }
-    if (myDept) {
-      const teamLeaders = findApprovers(u =>
-        u.dept === myDept && u.band === 'C4' &&
-        (u.position === '팀장' || u.position.includes('팀장'))
-      );
-      teamLeaders.forEach(u => line.push(toStep(u, '중간합의')));
-    }
-    if (myBizUnit) {
-      const bizLeaders = findApprovers(u =>
-        u.bizUnit === myBizUnit && u.band === 'C4' &&
-        (u.position === '사업부장' || u.position.includes('사업부장') ||
-         u.position === '본부장'   || u.position.includes('본부장'))
-      );
-      bizLeaders.forEach(u => line.push(toStep(u, '최종합의')));
-    }
-  } else if (myBand === 'C3') {
-    // C3: 같은 팀 C4 팀장 → 사업부 C4 사업부장/본부장
-    if (myDept) {
-      const teamLeaders = findApprovers(u =>
-        u.dept === myDept && u.band === 'C4' &&
-        (u.position === '팀장' || u.position.includes('팀장'))
-      );
-      teamLeaders.forEach(u => line.push(toStep(u, '중간합의')));
-    }
-    if (myBizUnit) {
-      const bizLeaders = findApprovers(u =>
-        u.bizUnit === myBizUnit && u.band === 'C4' &&
-        (u.position === '사업부장' || u.position.includes('사업부장') ||
-         u.position === '본부장'   || u.position.includes('본부장'))
-      );
-      bizLeaders.forEach(u => line.push(toStep(u, '최종합의')));
-    }
-  } else if (myBand === 'C4') {
-    // C4 팀장: 사업부 C4 사업부장/본부장
-    if (myPosition.includes('팀장') && myBizUnit) {
-      const bizLeaders = findApprovers(u =>
-        u.bizUnit === myBizUnit && u.band === 'C4' && u.id !== myId &&
-        (u.position === '사업부장' || u.position.includes('사업부장') ||
-         u.position === '본부장'   || u.position.includes('본부장'))
-      );
-      bizLeaders.forEach(u => line.push(toStep(u, '최종합의')));
-    }
+  // ────────────────────────────────────────────────────
+  // ① C1 / C2 / C3매니저 → 파트장(중간) → 팀장(최종)
+  // ────────────────────────────────────────────────────
+  if (myBand === 'C1' || myBand === 'C2' ||
+     (myBand === 'C3' && !hasPos(user, '파트장'))) {
+
+    // 1차: 같은 파트(또는 팀)의 C3 파트장
+    const partLeader = findFirst(u =>
+      u.band === 'C3' && hasPos(u, '파트장') &&
+      u.dept === myDept &&
+      (myPart ? u.part === myPart : true)
+    );
+    if (partLeader) line.push(toStep(partLeader, '중간합의'));
+
+    // 2차: 같은 팀의 C4 팀장
+    const teamLeader = findFirst(u =>
+      u.band === 'C4' && hasPos(u, '팀장') &&
+      u.dept === myDept
+    );
+    if (teamLeader) line.push(toStep(teamLeader, '최종합의'));
+
+  // ────────────────────────────────────────────────────
+  // ② C3 파트장 → 팀장(중간) → 사업부장(최종)
+  // ────────────────────────────────────────────────────
+  } else if (myBand === 'C3' && hasPos(user, '파트장')) {
+
+    // 1차: 같은 팀의 C4 팀장
+    const teamLeader = findFirst(u =>
+      u.band === 'C4' && hasPos(u, '팀장') &&
+      u.dept === myDept
+    );
+    if (teamLeader) line.push(toStep(teamLeader, '중간합의'));
+
+    // 2차: 같은 사업부의 C4 사업부장
+    const bizLeader = findFirst(u =>
+      u.band === 'C4' && hasPos(u, '사업부장') &&
+      u.bizUnit === myBizUnit
+    );
+    if (bizLeader) line.push(toStep(bizLeader, '최종합의'));
+
+  // ────────────────────────────────────────────────────
+  // ③ C4 팀장 → 사업부장(중간) → 본부장(최종)
+  // ────────────────────────────────────────────────────
+  } else if (myBand === 'C4' && hasPos(user, '팀장')) {
+
+    // 1차: 같은 사업부의 C4 사업부장
+    const bizLeader = findFirst(u =>
+      u.band === 'C4' && hasPos(u, '사업부장') &&
+      u.bizUnit === myBizUnit
+    );
+    if (bizLeader) line.push(toStep(bizLeader, '중간합의'));
+
+    // 2차: C4 본부장 (사업부 또는 전사 본부장)
+    const hqLeader = findFirst(u =>
+      u.band === 'C4' && hasPos(u, '본부장') &&
+      (u.bizUnit === myBizUnit || !u.bizUnit)
+    );
+    if (hqLeader) line.push(toStep(hqLeader, '최종합의'));
   }
 
-  // 합의 라인이 비어있으면 같은 조직의 관리자 폴백
+  // ── 합의라인이 비어있으면 조직 내 상위자로 fallback ──
   if (line.length === 0) {
-    const fallback = findApprovers(u =>
-      (u.bizUnit === myBizUnit || u.dept === myDept) &&
-      (u.band === 'C4' || (u.band === 'C3' && u.position === '파트장'))
+    console.warn('[getApprovalLine] 합의라인 자동 탐색 결과 없음 → fallback 적용',
+      { id: myId, band: myBand, position: myPosition, dept: myDept, bizUnit: myBizUnit });
+    const fallbacks = allUsers.filter(u =>
+      u.id !== myId && u.role !== 'admin' &&
+      (u.band === 'C4' || (u.band === 'C3' && hasPos(u, '파트장'))) &&
+      (u.bizUnit === myBizUnit || u.dept === myDept)
     ).slice(0, 2);
-    fallback.forEach((u, i) => line.push(toStep(u, i === fallback.length - 1 ? '최종합의' : '중간합의')));
+    fallbacks.forEach((u, i) =>
+      line.push(toStep(u, i === fallbacks.length - 1 ? '최종합의' : '중간합의'))
+    );
   }
 
   // 중복 제거
@@ -3438,6 +3429,7 @@ function getApprovalLine(user) {
     return true;
   });
 }
+
 
 // ── 어드민 설정 읽기 헬퍼 ──
 function _getAdminSettings() {
