@@ -1007,10 +1007,19 @@ function doSignup() {
   // 역할 자동 설정: C4(본부장·사업부장)·C3(팀장·파트장)는 manager, 나머지는 user
   const role = (band === 'C4' || band === 'C3') ? 'manager' : 'user';
 
+  // 조직 필드 분리 저장 — regDept hidden값("사업본부 / 경영지원팀 / 파트")은 표시용이고
+  // bizUnit/dept/part 세 필드를 별도 저장해야 메뉴 권한/합의라인 매칭이 정상 동작함
+  const _deptDiv  = document.getElementById('regDeptDiv').value  || '';
+  const _deptTeam = document.getElementById('regDeptTeam').value || '';
+  const _deptPart = document.getElementById('regDeptPart').value || '';
+
   const newUser = {
     id: 'u-' + Date.now(),
     name, email, password: pw,
-    dept, position, band, role,
+    bizUnit:  _deptDiv,    // 예: '사업본부'
+    dept:     _deptTeam,   // 예: '경영지원팀'
+    part:     _deptPart,   // 예: '기획마케팅파트'
+    position, band, role,
     joinDate: '2026-' + new Date().toISOString().slice(5, 10)
   };
 
