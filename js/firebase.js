@@ -135,7 +135,16 @@ function _normalizeUser(u) {
   if (!u) return u;
   u = Object.assign({}, u);  // 원본 불변 보장
 
-  // ① dept 슬래시 문자열 → bizUnit/dept/part 분리
+  // ① band 값 정규화: "C3 파트장", "C4 팀장" 등 공백 포함된 경우 밴드코드만 추출
+  //    BAND_DB name이 "C3 파트장" 형태로 저장된 경우 관리자 수정 시 잘못 저장됨
+  if (u.band && /^(C[1-4])\s/.test(u.band)) {
+    const cleaned = u.band.match(/^(C[1-4])/)[1];
+    console.log('[_normalizeUser] band 정규화:', u.name,
+      '— "' + u.band + '" → "' + cleaned + '"');
+    u.band = cleaned;
+  }
+
+  // ② dept 슬래시 문자열 → bizUnit/dept/part 분리
   //    구버전 가입 시 "사업본부 / 경영지원팀 / 기획마케팅파트" 형태로 저장된 경우
   if (u.dept && u.dept.includes(' / ') && (!u.bizUnit || !u.part)) {
     const parts = u.dept.split(' / ').map(s => s.trim());
@@ -146,8 +155,8 @@ function _normalizeUser(u) {
       '→ bizUnit:', u.bizUnit, '/ dept:', u.dept, '/ part:', u.part);
   }
 
-  // ② role 자동 교정: band=C3/C4 인데 role='user'로 잘못 저장된 경우
-  //    (회원가입 버그로 인해 발생 가능)
+  // ③ role 자동 교정: band=C3/C4 인데 role='user'로 잘못 저장된 경우
+  //    (회원가입 버그 또는 관리자 저장 오류 시 발생 가능)
   if (u.role === 'user' && (u.band === 'C3' || u.band === 'C4')) {
     const pos = u.position || '';
     const isLeader = pos.includes('파트장') || pos.includes('팀장') ||
@@ -159,16 +168,15 @@ function _normalizeUser(u) {
     }
   }
 
-  // ③ band 누락 시 position 기반 추론
+  // ④ band 누락 시 position 기반 추론
   if (!u.band && u.position) {
     const pos = u.position;
-    if (pos.includes('본부장') || pos.includes('사업부장') || pos.includes('팀장')) u.band = 'C4';
-    else if (pos.includes('파트장') || pos.includes('팀장')) u.band = 'C3';
+    if (pos.includes('본부장') || pos.includes('사업부장')) u.band = 'C4';
+    else if (pos.includes('팀장')) u.band = 'C4';
+    else if (pos.includes('파트장')) u.band = 'C3';
     else if (pos.includes('매니저') || pos.includes('선임')) u.band = 'C2';
     else u.band = 'C1';
-    if (u.band !== 'C1') {
-      console.log('[_normalizeUser] band 추론:', u.name, '— position:', pos, '→ band:', u.band);
-    }
+    console.log('[_normalizeUser] band 추론:', u.name, '— position:', pos, '→ band:', u.band);
   }
 
   return u;

@@ -207,12 +207,16 @@ function _syncSidebarUser() { _updateSidebar(CURRENT_USER); }
 // ─────────────────────────────────────────────
 function _applyMenuVisibility(user) {
   if (!user) return;
-  var band = user.band || '';
+  // ★ band 정규화: "C3 파트장", "C4 팀장" 등 공백 포함 값 → "C3", "C4" 추출
+  //   Firebase BAND_DB name이 오염된 경우 관리자 수정 시 잘못 저장될 수 있음
+  var band = (user.band || '').trim();
+  var bandMatch = band.match(/^(C[1-4])/);
+  if (bandMatch) band = bandMatch[1];  // "C3 파트장" → "C3"
+
   var pos  = user.position || '';
   var role = user.role || 'user';
 
   // ★ role 재판단: band=C3/C4이고 파트장/팀장 직책인데 role='user'로 잘못 저장된 경우 방어
-  //   (신규 가입 버그 또는 Firebase 데이터 불일치 시 발생 가능)
   var isLeaderPos = pos.includes('파트장') || pos.includes('팀장') ||
                     pos.includes('사업부장') || pos.includes('본부장');
   if (role === 'user' && (band === 'C3' || band === 'C4') && isLeaderPos) {
@@ -5011,7 +5015,10 @@ function renderCompTargetMgmtPage() {
   const myBizUnit = user.bizUnit || '';
   const myDept    = user.dept    || '';
   const myPart    = user.part    || '';
-  const myBand    = user.band    || '';
+  // ★ band 정규화: "C3 파트장" 등 공백 포함 값 → "C3" 추출
+  const _rawBand = user.band || '';
+  const _bandMatch = _rawBand.match(/^(C[1-4])/);
+  const myBand    = _bandMatch ? _bandMatch[1] : _rawBand;
   const myPos     = user.position || '';
 
   // 접근 권한 체크: C4 이상 또는 C3 (파트장 직책 또는 manager role)
