@@ -5180,11 +5180,11 @@ function renderCompTargetMgmtPage() {
       </div>
       ${org.editable ? `
       <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn-primary" style="font-size:12px" onclick="saveCtMgmtTargets('${org.type}','${org.name}','${safeName}')">
-          <i class="fas fa-save"></i> 저장 (직무)
+        <button id="savebtn_job_${org.type}_${safeName}" class="btn-primary" style="font-size:12px;display:inline-flex" onclick="saveCtMgmtTargets('${org.type}','${org.name}','${safeName}')">
+          <i class="fas fa-save"></i> 저장
         </button>
-        <button class="btn-outline" style="font-size:12px" onclick="saveCtMgmtTargets('${org.type}','${org.name}','${safeName}','leadership')">
-          <i class="fas fa-crown"></i> 저장 (리더십)
+        <button id="savebtn_lead_${org.type}_${safeName}" class="btn-outline" style="font-size:12px;display:none" onclick="saveCtMgmtTargets('${org.type}','${org.name}','${safeName}','leadership')">
+          <i class="fas fa-crown"></i> 저장
         </button>
       </div>` : `<p style="font-size:11px;color:#9CA3AF;margin-top:12px"><i class="fas fa-lock" style="margin-right:4px"></i>목표 수정은 관리자 콘솔 &gt; 역량목표관리에서도 가능합니다.</p>`}
     </div>`;
@@ -5210,12 +5210,20 @@ function switchCtMgmtTab(key, type, btn) {
   const jobPanel  = document.getElementById(`ct_job_${orgType}_${safeName}`);
   const leadPanel = document.getElementById(`ct_lead_${orgType}_${safeName}`);
 
+  // 저장 버튼 토글
+  const saveBtnJob  = document.getElementById(`savebtn_job_${orgType}_${safeName}`);
+  const saveBtnLead = document.getElementById(`savebtn_lead_${orgType}_${safeName}`);
+
   if (type === 'job') {
     if (jobPanel)  jobPanel.style.display  = 'flex';
     if (leadPanel) leadPanel.style.display = 'none';
+    if (saveBtnJob)  saveBtnJob.style.display  = 'inline-flex';
+    if (saveBtnLead) saveBtnLead.style.display = 'none';
   } else {
     if (jobPanel)  jobPanel.style.display  = 'none';
     if (leadPanel) leadPanel.style.display = 'flex';
+    if (saveBtnJob)  saveBtnJob.style.display  = 'none';
+    if (saveBtnLead) saveBtnLead.style.display = 'inline-flex';
   }
 
   // 현재 카드 안의 탭 버튼만 스타일 초기화 (다른 카드에 영향 없도록)
