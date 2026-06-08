@@ -209,7 +209,9 @@ function _applyMenuVisibility(user) {
   var canApprove = (band === 'C3' && pos.includes('파트장')) ||
                    (band === 'C4' && (pos.includes('팀장') || pos.includes('사업부장') || pos.includes('본부장'))) ||
                    user.role === 'manager';
-  var canManageTarget = (band === 'C3' && pos.includes('파트장')) || band === 'C4';
+  // C3 파트장: position에 '파트장' 포함 OR (band=C3 && role=manager) — 직책명 불일치 방어
+  var isC3Leader = (band === 'C3') && (pos.includes('파트장') || user.role === 'manager');
+  var canManageTarget = isC3Leader || band === 'C4';
   // 상위밴드 평가 메뉴: C3 파트장 이상 or manager
   var canUpperEval = (band === 'C3' && pos.includes('파트장')) || band === 'C4' || user.role === 'manager';
 
@@ -4992,8 +4994,9 @@ function renderCompTargetMgmtPage() {
   const myBand    = user.band    || '';
   const myPos     = user.position || '';
 
-  // 접근 권한 체크: C4 이상 또는 C3 파트장
-  const canAccess = (myBand === 'C3' && myPos.includes('파트장')) || myBand === 'C4';
+  // 접근 권한 체크: C4 이상 또는 C3 (파트장 직책 또는 manager role)
+  const isC3Mgr = myBand === 'C3' && (myPos.includes('파트장') || user.role === 'manager');
+  const canAccess = isC3Mgr || myBand === 'C4';
   if (!canAccess) {
     container.innerHTML = `<div class="card" style="padding:40px;text-align:center;color:var(--text-secondary)">
       <i class="fas fa-lock" style="font-size:32px;opacity:0.3;display:block;margin-bottom:12px"></i>
@@ -5022,9 +5025,14 @@ function renderCompTargetMgmtPage() {
         .map(u => u.part).filter((v, i, a) => v && a.indexOf(v) === i);
       parts.forEach(p => managedOrgs.push({ type: 'part', name: p, label: p + ' (파트)', icon: '🔷', editable: true }));
     }
-  } else if (myBand === 'C3' && myPos.includes('파트장')) {
-    // C3 파트장: 자기 파트 편집 가능
-    managedOrgs.push({ type: 'part', name: myPart, label: myPart + ' (파트)', icon: '🔷', editable: true });
+  } else if (myBand === 'C3' && (myPos.includes('파트장') || user.role === 'manager')) {
+    // C3 파트장: 자기 파트 편집 가능 (part가 없으면 dept 기반으로 fallback)
+    if (myPart) {
+      managedOrgs.push({ type: 'part', name: myPart, label: myPart + ' (파트)', icon: '🔷', editable: true });
+    } else if (myDept) {
+      // part 미설정 시 소속 팀 전체를 관리 범위로 설정
+      managedOrgs.push({ type: 'team', name: myDept, label: myDept + ' (팀)', icon: '👥', editable: true });
+    }
   }
 
   if (managedOrgs.length === 0) {

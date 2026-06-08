@@ -2,6 +2,7 @@
 //  GoWIT IDP — Firebase Firestore 연동 레이어
 //  전략: localStorage 함수들을 Firestore 버전으로 오버라이드
 //  기존 data.js / app.js / admin.js 코드 변경 최소화
+//  updated: 2026-06-08
 // =====================================================
 
 // ── Firebase 설정 ────────────────────────────────────
