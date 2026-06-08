@@ -890,103 +890,152 @@
     <div class="adm-page-header">
       <div>
         <h1>합의라인 관리</h1>
-        <p>조직 단위별 IDP 합의라인을 직접 설정합니다. 커스텀 설정이 없는 경우 밴드 기반 자동 규칙이 적용됩니다.</p>
+        <p>직책 기준으로 자동 합의라인 규칙을 확인하고, 전체 IDP에 일괄 적용합니다.</p>
       </div>
-      <button class="adm-btn-primary" onclick="admApvShowForm(null)">
-        <i class="fas fa-plus"></i> 새 합의라인 추가
+      <button class="adm-btn-primary" onclick="admApvRebuildAll()">
+        <i class="fas fa-arrows-rotate"></i> 전체 IDP 합의라인 재생성
       </button>
     </div>
 
-    <!-- 안내 배너 -->
-    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#1E40AF;line-height:1.8">
-      <i class="fas fa-circle-info" style="margin-right:6px"></i>
-      <strong>우선순위:</strong> 파트 &gt; 팀 &gt; 사업부 &gt; 전체 순으로 적용됩니다.
-      합의 단계는 <strong>밴드 역할(C3파트장·C4팀장·C4사업부장·C4본부장)</strong>로 설정하며, 합의 요청 시 해당 밴드의 실제 담당자가 <strong>자동 매칭</strong>됩니다.
-      커스텀 설정이 없으면 <strong>밴드 자동 규칙</strong>이 사용됩니다.
+    <!-- 자동 규칙 안내 카드 -->
+    <div style="background:linear-gradient(135deg,#EEF2FF,#F5F3FF);border:1.5px solid #C7D2FE;border-radius:12px;padding:18px 22px;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <i class="fas fa-circle-info" style="color:#6366f1;font-size:16px"></i>
+        <strong style="font-size:14px;color:#3730A3">직책 기준 자동 합의라인 규칙</strong>
+        <span style="font-size:11px;color:#6B7280;background:#E0E7FF;padding:2px 8px;border-radius:99px;margin-left:auto">추가 설정 불필요 · 자동 적용</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <!-- 규칙 1 -->
+        <div style="background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #E0E7FF">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+            <span style="background:#DBEAFE;color:#1D4ED8;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px">C1 · C2 · C3매니저</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#FEF3C7;color:#D97706;font-size:11px;font-weight:700;flex-shrink:0">1</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#374151">중간합의</div>
+                <div style="font-size:11px;color:#6B7280">소속 파트의 <strong>파트장</strong></div>
+              </div>
+            </div>
+            <div style="padding-left:30px;color:#D1D5DB;font-size:11px">↓</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#DCFCE7;color:#059669;font-size:11px;font-weight:700;flex-shrink:0">2</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#374151">최종합의</div>
+                <div style="font-size:11px;color:#6B7280">소속 팀의 <strong>팀장</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 규칙 2 -->
+        <div style="background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #E0E7FF">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+            <span style="background:#FEF3C7;color:#D97706;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px">C3 파트장</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#FEF3C7;color:#D97706;font-size:11px;font-weight:700;flex-shrink:0">1</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#374151">중간합의</div>
+                <div style="font-size:11px;color:#6B7280">소속 팀의 <strong>팀장</strong></div>
+              </div>
+            </div>
+            <div style="padding-left:30px;color:#D1D5DB;font-size:11px">↓</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#DCFCE7;color:#059669;font-size:11px;font-weight:700;flex-shrink:0">2</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#374151">최종합의</div>
+                <div style="font-size:11px;color:#6B7280">소속 사업부의 <strong>사업부장</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 규칙 3 -->
+        <div style="background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #E0E7FF">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+            <span style="background:#EDE9FE;color:#7C3AED;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px">C4 팀장</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#FEF3C7;color:#D97706;font-size:11px;font-weight:700;flex-shrink:0">1</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#374151">중간합의</div>
+                <div style="font-size:11px;color:#6B7280">소속 사업부의 <strong>사업부장</strong></div>
+              </div>
+            </div>
+            <div style="padding-left:30px;color:#D1D5DB;font-size:11px">↓</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#DCFCE7;color:#059669;font-size:11px;font-weight:700;flex-shrink:0">2</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#374151">최종합의</div>
+                <div style="font-size:11px;color:#6B7280">사업본부 <strong>본부장</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start">
+    <!-- 일괄 재생성 액션 카드 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
 
-      <!-- 좌: 목록 -->
-      <div class="adm-card" style="padding:0;overflow:hidden">
-        <div class="adm-card-header" style="padding:16px 20px;border-bottom:1px solid #F3F4F6">
-          <h3 style="margin:0"><i class="fas fa-list" style="color:#6366f1;margin-right:6px"></i> 설정된 합의라인 목록</h3>
-          <span id="apvLineCount" style="font-size:12px;color:#6B7280;background:#F3F4F6;padding:3px 10px;border-radius:99px">0건</span>
+      <!-- 재생성 실행 카드 -->
+      <div class="adm-card">
+        <div class="adm-card-header" style="margin:-20px -20px 16px;padding:14px 20px;background:#F0FDF4;border-radius:12px 12px 0 0;border-bottom:1px solid #BBF7D0">
+          <h3 style="margin:0;color:#065F46;font-size:14px"><i class="fas fa-arrows-rotate" style="color:#059669;margin-right:6px"></i> 합의라인 일괄 재생성</h3>
         </div>
-        <div id="apvLineList" style="min-height:200px">
-          <div style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">
-            <i class="fas fa-code-branch" style="font-size:28px;margin-bottom:10px;display:block;opacity:.4"></i>
-            설정된 합의라인이 없습니다.<br>
-            <span style="font-size:12px">밴드 자동 규칙이 적용됩니다.</span>
+        <p style="font-size:12.5px;color:#374151;line-height:1.8;margin-bottom:14px">
+          사용자 관리에 등록된 <strong>직책 정보</strong>를 기반으로,<br>
+          현재 <strong>합의 대기 · 진행중</strong> 상태의 모든 IDP 합의라인을<br>
+          위의 자동 규칙으로 <strong>강제 재생성</strong>합니다.
+        </p>
+        <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#92400E">
+          <i class="fas fa-triangle-exclamation" style="margin-right:5px"></i>
+          기존 합의 진행 상태가 초기화됩니다. 신중하게 실행하세요.
+        </div>
+        <button class="adm-btn-primary" style="width:100%;padding:11px;font-size:13px" onclick="admApvRebuildAll()">
+          <i class="fas fa-arrows-rotate"></i> 전체 IDP 합의라인 재생성
+        </button>
+        <div id="apvRebuildLog" style="margin-top:10px;font-size:12px;display:none;padding:10px;border-radius:8px"></div>
+      </div>
+
+      <!-- 현황 요약 카드 -->
+      <div class="adm-card">
+        <div class="adm-card-header" style="margin:-20px -20px 16px;padding:14px 20px;background:#F8FAFF;border-radius:12px 12px 0 0;border-bottom:1px solid #E0E7FF">
+          <h3 style="margin:0;color:#3730A3;font-size:14px"><i class="fas fa-chart-pie" style="color:#6366f1;margin-right:6px"></i> 현재 합의라인 현황</h3>
+          <button class="adm-btn-outline" style="font-size:11px;padding:4px 10px" onclick="admApvRenderSummary()">
+            <i class="fas fa-refresh"></i> 새로고침
+          </button>
+        </div>
+        <div id="apvSummaryWrap">
+          <div style="text-align:center;padding:32px 20px;color:#9CA3AF;font-size:13px">
+            <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:10px;display:block"></i>
+            현황 로딩 중...
           </div>
         </div>
       </div>
 
-      <!-- 우: 편집 폼 -->
-      <div class="adm-card" id="apvFormCard">
-        <div class="adm-card-header" style="margin:-20px -20px 20px;padding:16px 20px;background:#F8FAFF;border-radius:12px 12px 0 0;border-bottom:1px solid #E8EEFF">
-          <h3 style="margin:0;color:#3730A3" id="apvFormTitle"><i class="fas fa-plus-circle" style="margin-right:6px"></i> 새 합의라인 추가</h3>
-        </div>
-        <input type="hidden" id="apvEditId">
+    </div>
 
-        <!-- 적용 범위 -->
-        <div class="adm-form-group" style="margin-bottom:14px">
-          <label style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;display:block">적용 범위 <span style="color:#EF4444">*</span></label>
-          <div style="display:flex;gap:8px">
-            <select class="adm-input" id="apvOrgType" style="width:110px;flex-shrink:0" onchange="admApvOrgTypeChange()">
-              <option value="all">전체</option>
-              <option value="bizUnit">사업부</option>
-              <option value="team">팀</option>
-              <option value="part">파트</option>
-            </select>
-            <input type="text" class="adm-input" id="apvOrgUnit" placeholder="전체 적용 (입력 불필요)" style="flex:1" disabled>
-          </div>
-          <div id="apvOrgPresets" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
-        </div>
-
-        <!-- 합의 단계 -->
-        <div class="adm-form-group" style="margin-bottom:14px">
-          <label style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;display:block">합의 단계 <span style="color:#EF4444">*</span></label>
-          <div id="apvStepsWrap" style="display:flex;flex-direction:column;gap:8px"></div>
-          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">
-            <span style="font-size:11px;color:#6B7280;align-self:center;margin-right:2px">빠른 추가:</span>
-            <button type="button" class="adm-btn-outline" style="font-size:11.5px;padding:4px 10px;background:#FEF3C7;border-color:#D97706;color:#D97706;font-weight:700" onclick="admApvAddStep('C3파트장','중간합의')">C3 파트장</button>
-            <button type="button" class="adm-btn-outline" style="font-size:11.5px;padding:4px 10px;background:#DCFCE7;border-color:#059669;color:#059669;font-weight:700" onclick="admApvAddStep('C4팀장','최종합의')">C4 팀장</button>
-            <button type="button" class="adm-btn-outline" style="font-size:11.5px;padding:4px 10px;background:#EDE9FE;border-color:#7C3AED;color:#7C3AED;font-weight:700" onclick="admApvAddStep('C4사업부장','최종합의')">C4 사업부장</button>
-            <button type="button" class="adm-btn-outline" style="font-size:11.5px;padding:4px 10px;background:#FEE2E2;border-color:#DC2626;color:#DC2626;font-weight:700" onclick="admApvAddStep('C4본부장','최종합의')">C4 본부장</button>
-          </div>
-          <button class="adm-btn-outline" style="width:100%;margin-top:6px;font-size:12px;padding:8px" onclick="admApvAddStep()">
-            <i class="fas fa-plus"></i> 직접 추가
-          </button>
-        </div>
-
-        <!-- 액션 -->
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="adm-btn-primary" style="flex:1" onclick="admApvSave()">
-            <i class="fas fa-save"></i> 저장
-          </button>
-          <button class="adm-btn-outline" onclick="admApvReset()">
-            <i class="fas fa-undo"></i> 초기화
-          </button>
-        </div>
-
-        <!-- 구분선 + 일괄 재적용 -->
-        <hr style="border:none;border-top:1px solid #F3F4F6;margin:20px -20px">
-        <div style="padding:0">
-          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">
-            <i class="fas fa-arrows-rotate" style="color:#0369A1;margin-right:5px"></i> 기존 IDP 일괄 재적용
-          </div>
-          <p style="font-size:12px;color:#6B7280;line-height:1.7;margin-bottom:10px">
-            현재 <strong>합의 요청·진행중</strong> 상태의 IDP 합의라인을<br>위의 최신 설정으로 강제 재생성합니다.
-          </p>
-          <button class="adm-btn-outline" style="width:100%;font-size:12px;color:#0369A1;border-color:#BAE6FD" onclick="admApvRebuildAll()">
-            <i class="fas fa-arrows-rotate"></i> 기존 IDP 합의라인 재생성
-          </button>
-          <div id="apvRebuildLog" style="margin-top:8px;font-size:12px;color:#059669;display:none"></div>
+    <!-- 직원별 합의라인 미리보기 -->
+    <div class="adm-card" style="padding:0;overflow:hidden">
+      <div class="adm-card-header" style="padding:14px 20px;border-bottom:1px solid #F3F4F6">
+        <h3 style="margin:0;font-size:14px"><i class="fas fa-users" style="color:#6366f1;margin-right:6px"></i> 직원별 합의라인 미리보기</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" class="adm-input" id="apvPreviewSearch" placeholder="직원명 검색..." style="width:160px;padding:5px 10px;font-size:12px" oninput="admApvFilterPreview(this.value)">
+          <select class="adm-input" id="apvPreviewBandFilter" style="width:110px;padding:5px 8px;font-size:12px" onchange="admApvFilterPreview(document.getElementById('apvPreviewSearch').value)">
+            <option value="">전체 밴드</option>
+            <option value="C1">C1</option>
+            <option value="C2">C2</option>
+            <option value="C3">C3</option>
+            <option value="C4">C4</option>
+          </select>
         </div>
       </div>
-
+      <div id="apvPreviewList" style="min-height:200px"></div>
     </div>
+
   </section>
 
   </div><!-- /adm-pages-wrap -->
