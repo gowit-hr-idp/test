@@ -207,37 +207,31 @@ function _syncSidebarUser() { _updateSidebar(CURRENT_USER); }
 // ─────────────────────────────────────────────
 function _applyMenuVisibility(user) {
   if (!user) return;
-  // ★ band 정규화: "C3 파트장", "C4 팀장" 등 공백 포함 값 → "C3", "C4" 추출
-  //   Firebase BAND_DB name이 오염된 경우 관리자 수정 시 잘못 저장될 수 있음
-  var band = (user.band || '').trim();
-  var bandMatch = band.match(/^(C[1-4])/);
-  if (bandMatch) band = bandMatch[1];  // "C3 파트장" → "C3"
 
-  var pos  = user.position || '';
-  var role = user.role || 'user';
+  var pos = user.position || '';
 
-  // ★ role 재판단: band=C3/C4이고 파트장/팀장 직책인데 role='user'로 잘못 저장된 경우 방어
-  var isLeaderPos = pos.includes('파트장') || pos.includes('팀장') ||
-                    pos.includes('사업부장') || pos.includes('본부장');
-  if (role === 'user' && (band === 'C3' || band === 'C4') && isLeaderPos) {
-    role = 'manager';
-    console.warn('[MenuVisibility] role 교정 (user→manager):', user.name,
-      '— band:', band, '/ position:', pos);
-  }
+  // ══════════════════════════════════════════════════════
+  //  ★ 메뉴 표시 기준: band/role 무관, position(직책)만으로 판단
+  //    - Firebase band 값 오염("C3 파트장" 등) 문제를 근본 차단
+  //    - 사용자 관리에 등록된 직책 기준으로만 동작
+  // ══════════════════════════════════════════════════════
 
-  var canApprove = (band === 'C3' && pos.includes('파트장')) ||
-                   (band === 'C4' && (pos.includes('팀장') || pos.includes('사업부장') || pos.includes('본부장'))) ||
-                   role === 'manager';
-  // C3 파트장 판별 (3중 방어):
-  //  ① band=C3 && (position에 '파트장' OR role=manager)
-  //  ② position에 '파트장' && role=manager  (band 필드 누락 방어)
-  //  ③ band=C3 && position에 '파트장'       (role 불일치 방어 — 위에서 role 교정 후 도달)
-  var isC3Leader = ((band === 'C3') && (pos.includes('파트장') || role === 'manager'))
-                || (pos.includes('파트장') && role === 'manager')
-                || (band === 'C3' && pos.includes('파트장'));
-  var canManageTarget = isC3Leader || band === 'C4';
-  // 상위밴드 평가 메뉴: C3 파트장 이상 or manager
-  var canUpperEval = (band === 'C3' && pos.includes('파트장')) || band === 'C4' || role === 'manager';
+  // 역량 목표 관리: 파트장 · 팀장 · 사업부장 · 본부장
+  var canManageTarget = pos.includes('파트장') || pos.includes('팀장') ||
+                        pos.includes('사업부장') || pos.includes('본부장');
+
+  // 합의 요청 수신(합의자): 파트장 · 팀장 · 사업부장 · 본부장
+  var canApprove = canManageTarget;
+
+  // 구성원 피드백 / 구성원 IDP 현황: 파트장 · 팀장 · 사업부장 · 본부장
+  var canMemberFb = canManageTarget;
+
+  // 상위밴드 평가: 파트장 · 팀장 · 사업부장 · 본부장
+  var canUpperEval = canManageTarget;
+
+  console.log('[MenuVisibility]', user.name,
+    '— position:', pos,
+    '| canManageTarget:', canManageTarget);
 
   var approvalEl     = document.querySelector('.nav-item-approval');
   var ctMgmtEl       = document.querySelector('.nav-item-comp-target');
@@ -245,10 +239,6 @@ function _applyMenuVisibility(user) {
   var upperEvalEl    = document.querySelector('.nav-item-upper-eval');
   var memberFbEl     = document.querySelector('.nav-item-member-feedback');
   var memberIdpEl    = document.querySelector('.nav-item-member-idp');
-
-  // 구성원 실행 피드백 / 구성원 IDP 현황: C3 파트장 이상(C4 포함) 또는 manager role
-  var canMemberFb = (band === 'C3' && pos.includes('파트장')) ||
-                    band === 'C4' || user.role === 'manager';
 
   if (approvalEl)   approvalEl.style.display   = canApprove ? '' : 'none';
   if (ctMgmtEl)     ctMgmtEl.style.display     = canManageTarget ? '' : 'none';
@@ -1798,6 +1788,26 @@ function renderStep1(container) {
     : comp.leaderArea === 'people'
     ? '<span class="diag-area-badge ppl">피플</span>' : '';
 
+  // ── 조직 목표 레벨 자동 적용 ──
+  // 파트 > 팀 > 사업부 순서로 내 조직에 설정된 역량 목표를 찾아 추천 레벨로 표시
+  function _getOrgTargetLevel(compName, compType) {
+    if (typeof getCompTargets !== 'function') return null;
+    const u = CURRENT_USER;
+    if (!u) return null;
+    // 우선순위: 파트 > 팀 > 사업부
+    const checks = [
+      u.part    ? { orgType: 'part', orgName: u.part }    : null,
+      u.dept    ? { orgType: 'dept', orgName: u.dept }    : null,
+      u.bizUnit ? { orgType: 'biz',  orgName: u.bizUnit } : null,
+    ].filter(Boolean);
+    for (const { orgType, orgName } of checks) {
+      const targets = getCompTargets(orgType, orgName, compType);
+      if (targets && targets[compName] != null) return targets[compName];
+    }
+    return null;
+  }
+  const orgTargetLv = _getOrgTargetLevel(comp.name, comp.category || 'job');
+
   // 수준 버튼 생성
   function lvBtn(lv) {
     const lvDef   = comp.levels?.find(l => l.level === lv);
@@ -1805,11 +1815,17 @@ function renderStep1(container) {
     const desc    = lvDef?.desc  || '';
     const isCur   = lv === curLevel;
     const isTgt   = lv === newIDP.targetLevel;
+    const isOrg   = orgTargetLv != null && lv === orgTargetLv;  // 조직 목표 레벨
     const disabled = curLevel && lv <= curLevel;
+    const orgBadge = isOrg
+      ? `<div style="position:absolute;top:-8px;right:-8px;background:#6366f1;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:99px;white-space:nowrap">🎯 조직목표</div>`
+      : '';
     return `
-    <div class="idp-lv-btn ${isTgt ? 'selected' : ''} ${disabled ? 'disabled' : ''}"
+    <div class="idp-lv-btn ${isTgt ? 'selected' : ''} ${disabled ? 'disabled' : ''} ${isOrg && !isTgt ? 'org-target-hint' : ''}"
       onclick="${disabled ? '' : `selectIDPTargetLevel(${lv})`}"
-      title="${isCur ? '현재 수준' : ''}">
+      style="position:relative;${isOrg && !isTgt ? 'border:2px dashed #6366f1;' : ''}"
+      title="${isCur ? '현재 수준' : isOrg ? '조직 목표 레벨' : ''}">
+      ${orgBadge}
       ${isCur ? '<div class="idp-lv-cur-badge">현재</div>' : ''}
       <div class="idp-lv-num">L${lv}</div>
       <div class="idp-lv-title">${title}</div>
@@ -1821,6 +1837,16 @@ function renderStep1(container) {
 
   // dualMode 진행 단계 안내 배너
   const dualBanner = _getDualPhaseBanner();
+
+  // 조직 목표 안내 배너
+  const orgTargetBanner = orgTargetLv != null ? `
+    <div style="background:#EEF2FF;border:1px solid #A5B4FC;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+      <i class="fas fa-bullseye" style="color:#6366f1;font-size:16px"></i>
+      <div style="font-size:12.5px;color:#3730A3">
+        <strong>조직 목표 레벨: Lv.${orgTargetLv}</strong> —
+        소속 조직(${CURRENT_USER.part || CURRENT_USER.dept || CURRENT_USER.bizUnit || ''})에서 설정한 이 역량의 목표 수준입니다.
+      </div>
+    </div>` : '';
 
   container.innerHTML = `
     ${dualBanner}
@@ -1841,6 +1867,8 @@ function renderStep1(container) {
       이번 사이클이 끝날 때 도달할 <strong>목표 수준</strong>을 선택하세요.
       ${curLevel ? `(현재 수준 L${curLevel} 이상만 선택 가능합니다)` : ''}
     </div>
+
+    ${orgTargetBanner}
 
     <div class="idp-lv-grid">${lvBtns}</div>
 
@@ -5011,56 +5039,72 @@ function renderCompTargetMgmtPage() {
   const container = document.getElementById('compTargetMgmtContainer');
   if (!container || !CURRENT_USER) return;
 
-  const user = CURRENT_USER;
+  const user      = CURRENT_USER;
   const myBizUnit = user.bizUnit || '';
   const myDept    = user.dept    || '';
   const myPart    = user.part    || '';
-  // ★ band 정규화: "C3 파트장" 등 공백 포함 값 → "C3" 추출
-  const _rawBand = user.band || '';
-  const _bandMatch = _rawBand.match(/^(C[1-4])/);
-  const myBand    = _bandMatch ? _bandMatch[1] : _rawBand;
   const myPos     = user.position || '';
 
-  // 접근 권한 체크: C4 이상 또는 C3 (파트장 직책 또는 manager role)
-  // band 필드 누락 방어: position에 '파트장' && role=manager 이면 band 무관하게 허용
-  const isC3Mgr = (myBand === 'C3' && (myPos.includes('파트장') || user.role === 'manager'))
-               || (myPos.includes('파트장') && user.role === 'manager');
-  const canAccess = isC3Mgr || myBand === 'C4';
+  // ══════════════════════════════════════════════════
+  //  ★ 접근 권한 · 조직 범위 — position(직책)만으로 판단
+  // ══════════════════════════════════════════════════
+  const isBonbuJang  = myPos.includes('본부장');
+  const isSabJang    = myPos.includes('사업부장');
+  const isTeamLeader = myPos.includes('팀장');
+  const isPartLeader = myPos.includes('파트장');
+  const canAccess    = isBonbuJang || isSabJang || isTeamLeader || isPartLeader;
+
   if (!canAccess) {
     container.innerHTML = `<div class="card" style="padding:40px;text-align:center;color:var(--text-secondary)">
       <i class="fas fa-lock" style="font-size:32px;opacity:0.3;display:block;margin-bottom:12px"></i>
-      <p>C3 파트장 / C4 이상만 접근할 수 있습니다.</p></div>`;
+      <p>파트장 / 팀장 / 사업부장 / 본부장만 접근할 수 있습니다.</p></div>`;
     return;
   }
 
-  // 편집 권한: C4 사업부장/본부장/팀장 + C3 파트장 모두 자기 조직 목표 편집 가능
-  const isOrgHead    = myBand === 'C4' && (myPos.includes('사업부장') || myPos.includes('본부장'));
-  const isTeamLeader = myBand === 'C4' && myPos.includes('팀장');
-  const isPartLeader = myBand === 'C3' && myPos.includes('파트장');
+  // ── 유니크 값 헬퍼 ──
+  const uniq = arr => [...new Set(arr.filter(Boolean))];
 
-  // 이 사용자가 관리 가능한 조직 범위 결정
+  // ══════════════════════════════════════════════════
+  //  관리 조직 카드 목록 구성
+  //
+  //  (1) 본부장  = 내 bizUnit 산하 팀 + 각 팀의 파트들 (개별 카드)
+  //  (2) 사업부장 = 내 bizUnit (사업부) 카드 + 산하 팀 카드들
+  //  (3) 팀장    = 내 팀 카드 + 산하 파트 카드들
+  //  (4) 파트장  = 내 파트 카드 (없으면 팀 카드)
+  // ══════════════════════════════════════════════════
   let managedOrgs = [];
-  if (myBand === 'C4') {
-    if (myPos.includes('본부장') || myPos.includes('사업부장')) {
-      // 사업부장/본부장: 사업부 + 산하 팀 전체 편집 가능
-      managedOrgs.push({ type: 'biz', name: myBizUnit, label: myBizUnit + ' (사업부)', icon: '🏢', editable: true });
-      const teams = USERS_DB.filter(u => u.bizUnit === myBizUnit && u.dept)
-        .map(u => u.dept).filter((v, i, a) => v && a.indexOf(v) === i);
-      teams.forEach(t => managedOrgs.push({ type: 'team', name: t, label: t + ' (팀)', icon: '👥', editable: true }));
-    } else if (myPos.includes('팀장')) {
-      // 팀장: 자기 팀 + 산하 파트 편집 가능
-      managedOrgs.push({ type: 'team', name: myDept, label: myDept + ' (팀)', icon: '👥', editable: true });
-      const parts = USERS_DB.filter(u => u.dept === myDept && u.part)
-        .map(u => u.part).filter((v, i, a) => v && a.indexOf(v) === i);
-      parts.forEach(p => managedOrgs.push({ type: 'part', name: p, label: p + ' (파트)', icon: '🔷', editable: true }));
-    }
-  } else if ((myBand === 'C3' && (myPos.includes('파트장') || user.role === 'manager'))
-          || (myPos.includes('파트장') && user.role === 'manager')) {
-    // C3 파트장: 자기 파트 편집 가능 (part가 없으면 dept 기반으로 fallback)
+
+  if (isBonbuJang) {
+    // (1) 본부장: bizUnit 산하 팀 목록 → 각 팀 + 그 팀의 파트들을 개별 카드로
+    const allInBiz = USERS_DB.filter(u => u.bizUnit === myBizUnit && u.id !== 'u-admin');
+    const teams    = uniq(allInBiz.map(u => u.dept));
+    teams.forEach(team => {
+      // 팀 카드
+      managedOrgs.push({ type: 'team', name: team, label: team + ' (팀)', icon: '👥', editable: true });
+      // 해당 팀 산하 파트 카드들
+      const partsInTeam = uniq(allInBiz.filter(u => u.dept === team).map(u => u.part));
+      partsInTeam.forEach(part => {
+        managedOrgs.push({ type: 'part', name: part, label: part + ' (파트)', icon: '🔷', editable: true });
+      });
+    });
+
+  } else if (isSabJang) {
+    // (2) 사업부장: 사업부 카드 + 산하 팀 카드들
+    managedOrgs.push({ type: 'biz', name: myBizUnit, label: myBizUnit + ' (사업부)', icon: '🏢', editable: true });
+    const teams = uniq(USERS_DB.filter(u => u.bizUnit === myBizUnit && u.id !== 'u-admin').map(u => u.dept));
+    teams.forEach(t => managedOrgs.push({ type: 'team', name: t, label: t + ' (팀)', icon: '👥', editable: true }));
+
+  } else if (isTeamLeader) {
+    // (3) 팀장: 팀 카드 + 산하 파트 카드들
+    managedOrgs.push({ type: 'team', name: myDept, label: myDept + ' (팀)', icon: '👥', editable: true });
+    const parts = uniq(USERS_DB.filter(u => u.dept === myDept && u.id !== 'u-admin').map(u => u.part));
+    parts.forEach(p => managedOrgs.push({ type: 'part', name: p, label: p + ' (파트)', icon: '🔷', editable: true }));
+
+  } else if (isPartLeader) {
+    // (4) 파트장: 파트 카드 (part 미설정 시 팀 카드 fallback)
     if (myPart) {
       managedOrgs.push({ type: 'part', name: myPart, label: myPart + ' (파트)', icon: '🔷', editable: true });
     } else if (myDept) {
-      // part 미설정 시 소속 팀 전체를 관리 범위로 설정
       managedOrgs.push({ type: 'team', name: myDept, label: myDept + ' (팀)', icon: '👥', editable: true });
     }
   }
@@ -5081,9 +5125,9 @@ function renderCompTargetMgmtPage() {
     const savedJob  = (typeof getCompTargets === 'function') ? getCompTargets(org.type === 'team' ? 'dept' : (org.type === 'biz' ? 'biz' : 'part'), org.name, 'job')        : null;
     const savedLead = (typeof getCompTargets === 'function') ? getCompTargets(org.type === 'team' ? 'dept' : (org.type === 'biz' ? 'biz' : 'part'), org.name, 'leadership') : null;
     const memberCnt = USERS_DB.filter(u => {
-      if (org.type === 'biz')  return u.bizUnit === org.name && u.role !== 'admin';
-      if (org.type === 'team') return u.dept    === org.name && u.role !== 'admin';
-      if (org.type === 'part') return u.part    === org.name && u.role !== 'admin';
+      if (org.type === 'biz')  return u.bizUnit === org.name && u.id !== 'u-admin';
+      if (org.type === 'team') return u.dept    === org.name && u.id !== 'u-admin';
+      if (org.type === 'part') return u.part    === org.name && u.id !== 'u-admin';
       return false;
     }).length;
 
@@ -5115,7 +5159,7 @@ function renderCompTargetMgmtPage() {
       </div>
       <!-- 직무/리더십 탭 -->
       <div style="display:flex;gap:0;border-bottom:2px solid #e5e7eb;margin-bottom:14px">
-        <button onclick="switchCtMgmtTab('${org.type}_${safeName}','job',this)" 
+        <button onclick="switchCtMgmtTab('${org.type}_${safeName}','job',this)"
           class="ct-tab active" id="tab_job_${org.type}_${safeName}"
           style="padding:6px 16px;font-size:12px;font-weight:600;border:none;border-bottom:2px solid ${bdColor};background:transparent;color:${bdColor};cursor:pointer;margin-bottom:-2px">
           <i class="fas fa-briefcase"></i> 직무역량
