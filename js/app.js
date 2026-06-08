@@ -147,9 +147,12 @@ function _initAppAfterLoad() {
           if (fresh) {
             CURRENT_USER = fresh;
             try { sessionStorage.setItem('idp_user', JSON.stringify(fresh)); } catch(e) {}
-            _updateSidebar(CURRENT_USER);
-            _applyMenuVisibility(CURRENT_USER); // ★ 메뉴 권한 재적용
           }
+          // ★ fresh 여부와 관계없이 항상 메뉴 권한 재적용
+          //   (Firebase 데이터 로드 전 초기 sessUser 기반으로 이미 적용됐더라도 재확인)
+          _updateSidebar(CURRENT_USER);
+          _applyMenuVisibility(CURRENT_USER);
+          console.log('[onUsersChange] 메뉴 재적용 — band:', CURRENT_USER.band, '/ position:', CURRENT_USER.position, '/ role:', CURRENT_USER.role);
         }
       },
       function onMainChange() {
@@ -206,11 +209,19 @@ function _applyMenuVisibility(user) {
   if (!user) return;
   var band = user.band || '';
   var pos  = user.position || '';
+  // ★ band가 비어있고 role=manager인 경우 → dept 슬래시 문자열 저장된 구버전 가입자 방어
+  //   신규 가입 시 bizUnit/dept/part가 분리저장되지 않아 band가 없는 케이스 대비
+  if (!band && user.role === 'manager') {
+    console.warn('[MenuVisibility] band 없는 manager — dept:', user.dept, '/ position:', pos);
+  }
   var canApprove = (band === 'C3' && pos.includes('파트장')) ||
                    (band === 'C4' && (pos.includes('팀장') || pos.includes('사업부장') || pos.includes('본부장'))) ||
                    user.role === 'manager';
-  // C3 파트장: position에 '파트장' 포함 OR (band=C3 && role=manager) — 직책명 불일치 방어
-  var isC3Leader = (band === 'C3') && (pos.includes('파트장') || user.role === 'manager');
+  // C3 파트장 판별:
+  //  ① band=C3 && (position에 '파트장' OR role=manager)           — 정상 케이스
+  //  ② position에 '파트장' && role=manager  (band 필드 누락 방어) — Firebase band 미저장 방어
+  var isC3Leader = ((band === 'C3') && (pos.includes('파트장') || user.role === 'manager'))
+                || (pos.includes('파트장') && user.role === 'manager');
   var canManageTarget = isC3Leader || band === 'C4';
   // 상위밴드 평가 메뉴: C3 파트장 이상 or manager
   var canUpperEval = (band === 'C3' && pos.includes('파트장')) || band === 'C4' || user.role === 'manager';
@@ -4995,7 +5006,9 @@ function renderCompTargetMgmtPage() {
   const myPos     = user.position || '';
 
   // 접근 권한 체크: C4 이상 또는 C3 (파트장 직책 또는 manager role)
-  const isC3Mgr = myBand === 'C3' && (myPos.includes('파트장') || user.role === 'manager');
+  // band 필드 누락 방어: position에 '파트장' && role=manager 이면 band 무관하게 허용
+  const isC3Mgr = (myBand === 'C3' && (myPos.includes('파트장') || user.role === 'manager'))
+               || (myPos.includes('파트장') && user.role === 'manager');
   const canAccess = isC3Mgr || myBand === 'C4';
   if (!canAccess) {
     container.innerHTML = `<div class="card" style="padding:40px;text-align:center;color:var(--text-secondary)">
@@ -5025,7 +5038,8 @@ function renderCompTargetMgmtPage() {
         .map(u => u.part).filter((v, i, a) => v && a.indexOf(v) === i);
       parts.forEach(p => managedOrgs.push({ type: 'part', name: p, label: p + ' (파트)', icon: '🔷', editable: true }));
     }
-  } else if (myBand === 'C3' && (myPos.includes('파트장') || user.role === 'manager')) {
+  } else if ((myBand === 'C3' && (myPos.includes('파트장') || user.role === 'manager'))
+          || (myPos.includes('파트장') && user.role === 'manager')) {
     // C3 파트장: 자기 파트 편집 가능 (part가 없으면 dept 기반으로 fallback)
     if (myPart) {
       managedOrgs.push({ type: 'part', name: myPart, label: myPart + ' (파트)', icon: '🔷', editable: true });

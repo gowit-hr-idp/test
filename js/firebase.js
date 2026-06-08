@@ -99,7 +99,7 @@ async function loadUsersDBAsync() {
       await saveUsersDBAsync(DEFAULT_USERS_DB);
       USERS_DB = DEFAULT_USERS_DB.map(u => ({ ...u }));
     } else {
-      USERS_DB = snap.docs.map(d => d.data());
+      USERS_DB = snap.docs.map(d => d.data()).map(_normalizeUser);
       console.log(`[Firebase] USERS_DB 로드: ${USERS_DB.length}명`);
     }
   } catch(e) {
@@ -123,6 +123,27 @@ async function saveUsersDBAsync(users) {
     console.warn('[Firebase] USERS_DB 저장 실패 → localStorage fallback:', e);
     localStorage.setItem('IDP_USERS_DB', JSON.stringify(users));
   }
+}
+
+/**
+ * Firebase에서 로드한 사용자 데이터 정규화
+ * - 구버전 가입 시 dept = "사업본부 / 경영지원팀 / 기획마케팅파트" 형태로 저장된 경우
+ *   bizUnit / dept / part 를 자동 분리
+ * - band / position 필드 없는 경우 role 기반으로 보완
+ */
+function _normalizeUser(u) {
+  if (!u) return u;
+  // dept에 슬래시 포함 시 → bizUnit/dept/part 분리
+  if (u.dept && u.dept.includes(' / ') && (!u.bizUnit || !u.part)) {
+    const parts = u.dept.split(' / ').map(s => s.trim());
+    // 형태: "사업본부 / 경영지원팀" 또는 "사업본부 / 경영지원팀 / 기획마케팅파트"
+    u = Object.assign({}, u);
+    if (parts.length >= 1 && !u.bizUnit) u.bizUnit = parts[0];
+    if (parts.length >= 2)               u.dept    = parts[1];
+    if (parts.length >= 3 && !u.part)    u.part    = parts[2];
+    console.log('[_normalizeUser] 조직 필드 자동 분리:', u.name, '→ bizUnit:', u.bizUnit, '/ dept:', u.dept, '/ part:', u.part);
+  }
+  return u;
 }
 
 /** 단일 사용자 추가/수정 */
@@ -570,7 +591,7 @@ function startRealtimeSync(onUsersChange, onMainChange, onBandChange) {
 
     // 사용자 DB 실시간 감지
     const unsubUsers = db.collection(FS_COL.USERS).onSnapshot(snap => {
-      const newUsers = snap.docs.map(d => d.data());
+      const newUsers = snap.docs.map(d => d.data()).map(_normalizeUser);
       if (newUsers.length > 0) {
         USERS_DB = newUsers;
         console.log('[Firebase] 실시간 사용자 업데이트:', USERS_DB.length, '명');
