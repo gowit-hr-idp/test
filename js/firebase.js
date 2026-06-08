@@ -133,16 +133,44 @@ async function saveUsersDBAsync(users) {
  */
 function _normalizeUser(u) {
   if (!u) return u;
-  // dept에 슬래시 포함 시 → bizUnit/dept/part 분리
+  u = Object.assign({}, u);  // 원본 불변 보장
+
+  // ① dept 슬래시 문자열 → bizUnit/dept/part 분리
+  //    구버전 가입 시 "사업본부 / 경영지원팀 / 기획마케팅파트" 형태로 저장된 경우
   if (u.dept && u.dept.includes(' / ') && (!u.bizUnit || !u.part)) {
     const parts = u.dept.split(' / ').map(s => s.trim());
-    // 형태: "사업본부 / 경영지원팀" 또는 "사업본부 / 경영지원팀 / 기획마케팅파트"
-    u = Object.assign({}, u);
     if (parts.length >= 1 && !u.bizUnit) u.bizUnit = parts[0];
     if (parts.length >= 2)               u.dept    = parts[1];
     if (parts.length >= 3 && !u.part)    u.part    = parts[2];
-    console.log('[_normalizeUser] 조직 필드 자동 분리:', u.name, '→ bizUnit:', u.bizUnit, '/ dept:', u.dept, '/ part:', u.part);
+    console.log('[_normalizeUser] 조직 분리:', u.name,
+      '→ bizUnit:', u.bizUnit, '/ dept:', u.dept, '/ part:', u.part);
   }
+
+  // ② role 자동 교정: band=C3/C4 인데 role='user'로 잘못 저장된 경우
+  //    (회원가입 버그로 인해 발생 가능)
+  if (u.role === 'user' && (u.band === 'C3' || u.band === 'C4')) {
+    const pos = u.position || '';
+    const isLeader = pos.includes('파트장') || pos.includes('팀장') ||
+                     pos.includes('사업부장') || pos.includes('본부장');
+    if (isLeader) {
+      u.role = 'manager';
+      console.log('[_normalizeUser] role 교정:', u.name,
+        '— band:', u.band, '/ position:', pos, '→ role: manager');
+    }
+  }
+
+  // ③ band 누락 시 position 기반 추론
+  if (!u.band && u.position) {
+    const pos = u.position;
+    if (pos.includes('본부장') || pos.includes('사업부장') || pos.includes('팀장')) u.band = 'C4';
+    else if (pos.includes('파트장') || pos.includes('팀장')) u.band = 'C3';
+    else if (pos.includes('매니저') || pos.includes('선임')) u.band = 'C2';
+    else u.band = 'C1';
+    if (u.band !== 'C1') {
+      console.log('[_normalizeUser] band 추론:', u.name, '— position:', pos, '→ band:', u.band);
+    }
+  }
+
   return u;
 }
 

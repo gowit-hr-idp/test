@@ -209,22 +209,31 @@ function _applyMenuVisibility(user) {
   if (!user) return;
   var band = user.band || '';
   var pos  = user.position || '';
-  // ★ band가 비어있고 role=manager인 경우 → dept 슬래시 문자열 저장된 구버전 가입자 방어
-  //   신규 가입 시 bizUnit/dept/part가 분리저장되지 않아 band가 없는 케이스 대비
-  if (!band && user.role === 'manager') {
-    console.warn('[MenuVisibility] band 없는 manager — dept:', user.dept, '/ position:', pos);
+  var role = user.role || 'user';
+
+  // ★ role 재판단: band=C3/C4이고 파트장/팀장 직책인데 role='user'로 잘못 저장된 경우 방어
+  //   (신규 가입 버그 또는 Firebase 데이터 불일치 시 발생 가능)
+  var isLeaderPos = pos.includes('파트장') || pos.includes('팀장') ||
+                    pos.includes('사업부장') || pos.includes('본부장');
+  if (role === 'user' && (band === 'C3' || band === 'C4') && isLeaderPos) {
+    role = 'manager';
+    console.warn('[MenuVisibility] role 교정 (user→manager):', user.name,
+      '— band:', band, '/ position:', pos);
   }
+
   var canApprove = (band === 'C3' && pos.includes('파트장')) ||
                    (band === 'C4' && (pos.includes('팀장') || pos.includes('사업부장') || pos.includes('본부장'))) ||
-                   user.role === 'manager';
-  // C3 파트장 판별:
-  //  ① band=C3 && (position에 '파트장' OR role=manager)           — 정상 케이스
-  //  ② position에 '파트장' && role=manager  (band 필드 누락 방어) — Firebase band 미저장 방어
-  var isC3Leader = ((band === 'C3') && (pos.includes('파트장') || user.role === 'manager'))
-                || (pos.includes('파트장') && user.role === 'manager');
+                   role === 'manager';
+  // C3 파트장 판별 (3중 방어):
+  //  ① band=C3 && (position에 '파트장' OR role=manager)
+  //  ② position에 '파트장' && role=manager  (band 필드 누락 방어)
+  //  ③ band=C3 && position에 '파트장'       (role 불일치 방어 — 위에서 role 교정 후 도달)
+  var isC3Leader = ((band === 'C3') && (pos.includes('파트장') || role === 'manager'))
+                || (pos.includes('파트장') && role === 'manager')
+                || (band === 'C3' && pos.includes('파트장'));
   var canManageTarget = isC3Leader || band === 'C4';
   // 상위밴드 평가 메뉴: C3 파트장 이상 or manager
-  var canUpperEval = (band === 'C3' && pos.includes('파트장')) || band === 'C4' || user.role === 'manager';
+  var canUpperEval = (band === 'C3' && pos.includes('파트장')) || band === 'C4' || role === 'manager';
 
   var approvalEl     = document.querySelector('.nav-item-approval');
   var ctMgmtEl       = document.querySelector('.nav-item-comp-target');
