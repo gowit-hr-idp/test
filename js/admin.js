@@ -3121,3 +3121,288 @@ function _refreshPositionDropdowns() {
     if (bandSel) _refreshPositionSelectForBand(prefix, bandSel.value);
   });
 }
+
+// =============================================
+// 합의라인 관리 (직책 기준 자동 규칙)
+// =============================================
+
+/**
+ * 합의라인 페이지 초기화 — navigateTo('adm-approval-line') 시 호출
+ */
+function admApvInit() {
+  admApvRenderSummary();
+  admApvRenderPreview('', '');
+}
+
+/**
+ * 현황 요약 렌더링
+ */
+function admApvRenderSummary() {
+  const wrap = document.getElementById('apvSummaryWrap');
+  if (!wrap) return;
+
+  const allIdps   = typeof IDP_LIST !== 'undefined' ? IDP_LIST : [];
+  const allUsers  = typeof USERS_DB  !== 'undefined' ? USERS_DB  : [];
+
+  // 상태별 집계
+  const total    = allIdps.length;
+  const waiting  = allIdps.filter(i => i.status === 'pending-approval').length;
+  const inApv    = allIdps.filter(i => i.status === 'mid-approved').length;
+  const approved = allIdps.filter(i => i.status === 'approved').length;
+  const noLine   = allIdps.filter(i => !i.approvalLine || i.approvalLine.length === 0).length;
+
+  // 직책별 합의자 수
+  const posMap = {};
+  allUsers.forEach(u => {
+    const pos = u.position || '';
+    if (!pos || u.role === 'admin') return;
+    posMap[pos] = (posMap[pos] || 0) + 1;
+  });
+  const posRows = Object.entries(posMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([pos, cnt]) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #F3F4F6">
+        <span style="font-size:12px;color:#374151">${pos}</span>
+        <span style="font-size:12px;font-weight:700;color:#6366f1">${cnt}명</span>
+      </div>`).join('');
+
+  wrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:#EFF6FF;border-radius:8px;padding:10px 14px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:#1D4ED8">${total}</div>
+        <div style="font-size:11px;color:#6B7280;margin-top:2px">전체 IDP</div>
+      </div>
+      <div style="background:#FFF7ED;border-radius:8px;padding:10px 14px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:#EA580C">${waiting + inApv}</div>
+        <div style="font-size:11px;color:#6B7280;margin-top:2px">합의 진행중</div>
+      </div>
+      <div style="background:#F0FDF4;border-radius:8px;padding:10px 14px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:#059669">${approved}</div>
+        <div style="font-size:11px;color:#6B7280;margin-top:2px">합의 완료</div>
+      </div>
+      <div style="background:${noLine > 0 ? '#FEF2F2' : '#F0FDF4'};border-radius:8px;padding:10px 14px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:${noLine > 0 ? '#DC2626' : '#059669'}">${noLine}</div>
+        <div style="font-size:11px;color:#6B7280;margin-top:2px">합의라인 없음</div>
+      </div>
+    </div>
+    ${noLine > 0 ? `
+    <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#DC2626">
+      <i class="fas fa-triangle-exclamation" style="margin-right:5px"></i>
+      합의라인이 없는 IDP ${noLine}건이 있습니다. 재생성을 실행하세요.
+    </div>` : `
+    <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#059669">
+      <i class="fas fa-check-circle" style="margin-right:5px"></i>
+      모든 IDP에 합의라인이 정상 설정되어 있습니다.
+    </div>`}
+    <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px">
+      <i class="fas fa-users" style="color:#6366f1;margin-right:4px"></i> 직책별 사용자 현황
+    </div>
+    <div style="max-height:180px;overflow-y:auto">${posRows || '<p style="font-size:12px;color:#9CA3AF">등록된 사용자가 없습니다.</p>'}</div>`;
+}
+
+/**
+ * 직원별 합의라인 미리보기 렌더링
+ */
+function admApvRenderPreview(searchText, bandFilter) {
+  const wrap = document.getElementById('apvPreviewList');
+  if (!wrap) return;
+
+  const allUsers = (typeof USERS_DB !== 'undefined' ? USERS_DB : [])
+    .filter(u => u.role !== 'admin' && u.id !== 'u-admin');
+
+  let filtered = allUsers;
+  if (bandFilter) filtered = filtered.filter(u => (u.band || '') === bandFilter);
+  if (searchText) {
+    const q = searchText.toLowerCase();
+    filtered = filtered.filter(u =>
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.dept || '').toLowerCase().includes(q) ||
+      (u.position || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">
+      <i class="fas fa-user-slash" style="font-size:28px;margin-bottom:10px;display:block;opacity:.3"></i>
+      검색 결과가 없습니다.
+    </div>`;
+    return;
+  }
+
+  // 밴드·직책 순서로 정렬
+  const bandOrder = { C4: 0, C3: 1, C2: 2, C1: 3 };
+  filtered.sort((a, b) => {
+    const bo = (bandOrder[a.band] ?? 9) - (bandOrder[b.band] ?? 9);
+    if (bo !== 0) return bo;
+    return (a.name || '').localeCompare(b.name || '', 'ko');
+  });
+
+  const bandColors = {
+    C4: { bg: '#EDE9FE', text: '#7C3AED', border: '#C4B5FD' },
+    C3: { bg: '#FEF3C7', text: '#D97706', border: '#FDE68A' },
+    C2: { bg: '#DBEAFE', text: '#1D4ED8', border: '#BFDBFE' },
+    C1: { bg: '#F3F4F6', text: '#374151', border: '#D1D5DB' }
+  };
+
+  /**
+   * 특정 사용자의 자동 합의라인을 계산하는 로컬 헬퍼
+   * (app.js의 getApprovalLine과 동일한 로직 — 미리보기 전용)
+   */
+  function calcLine(user) {
+    const myBand     = user.band     || '';
+    const myDept     = user.dept     || '';
+    const myPart     = user.part     || '';
+    const myBizUnit  = user.bizUnit  || '';
+    const myPos      = user.position || '';
+    const others     = allUsers.filter(u => u.id !== user.id);
+    const hasPos     = (u, ...kws) => kws.some(k => (u.position || '').includes(k));
+    const findFirst  = (fn) => others.find(fn) || null;
+    const line = [];
+
+    // C1 / C2 / C3매니저
+    if (myBand === 'C1' || myBand === 'C2' ||
+        (myBand === 'C3' && !hasPos(user, '파트장'))) {
+      const partLeader = findFirst(u =>
+        hasPos(u, '파트장') && u.dept === myDept &&
+        (myPart ? u.part === myPart : true));
+      if (partLeader) line.push({ name: partLeader.name, pos: partLeader.position, role: '중간합의' });
+      const teamLeader = findFirst(u => hasPos(u, '팀장') && u.dept === myDept);
+      if (teamLeader)  line.push({ name: teamLeader.name, pos: teamLeader.position,  role: '최종합의' });
+
+    // C3 파트장
+    } else if (myBand === 'C3' && hasPos(user, '파트장')) {
+      const teamLeader = findFirst(u => hasPos(u, '팀장') && u.dept === myDept);
+      if (teamLeader)  line.push({ name: teamLeader.name,  pos: teamLeader.position,  role: '중간합의' });
+      const bizLeader  = findFirst(u => hasPos(u, '사업부장') && u.bizUnit === myBizUnit);
+      if (bizLeader)   line.push({ name: bizLeader.name,   pos: bizLeader.position,   role: '최종합의' });
+
+    // C4 팀장
+    } else if (myBand === 'C4' && hasPos(user, '팀장')) {
+      const bizLeader  = findFirst(u => hasPos(u, '사업부장') && u.bizUnit === myBizUnit);
+      if (bizLeader)   line.push({ name: bizLeader.name,   pos: bizLeader.position,   role: '중간합의' });
+      const hqLeader   = findFirst(u => hasPos(u, '본부장') &&
+        (u.bizUnit === myBizUnit || !u.bizUnit));
+      if (hqLeader)    line.push({ name: hqLeader.name,    pos: hqLeader.position,    role: '최종합의' });
+    }
+
+    return line;
+  }
+
+  const rows = filtered.map(u => {
+    const bc    = bandColors[u.band] || bandColors.C1;
+    const line  = calcLine(u);
+    const steps = line.length > 0
+      ? line.map((s, i) => `
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:20px;padding:3px 10px 3px 6px;font-size:11px;color:#374151">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${i===0?'#FEF3C7':'#DCFCE7'};color:${i===0?'#D97706':'#059669'};font-size:10px;font-weight:800">${i+1}</span>
+            <strong>${s.name}</strong>
+            <span style="color:#9CA3AF">${s.pos}</span>
+            <span style="color:${i===0?'#D97706':'#059669'};font-size:10px;font-weight:700">${s.role}</span>
+          </span>
+          ${i < line.length - 1 ? '<i class="fas fa-arrow-right" style="color:#D1D5DB;font-size:10px;margin:0 2px"></i>' : ''}`).join('')
+      : `<span style="font-size:12px;color:#9CA3AF;font-style:italic">합의라인 없음</span>`;
+
+    return `
+    <div style="display:grid;grid-template-columns:200px 1fr;gap:0;border-bottom:1px solid #F3F4F6;align-items:center">
+      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+          <span style="background:${bc.bg};color:${bc.text};border:1px solid ${bc.border};font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px">${u.band||'-'}</span>
+          <span style="font-size:13px;font-weight:700;color:#111827">${u.name||'(이름없음)'}</span>
+        </div>
+        <div style="font-size:11px;color:#6B7280">${u.position||'-'} · ${u.dept||'-'}${u.part ? ' · ' + u.part : ''}</div>
+      </div>
+      <div style="padding:12px 16px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">
+        ${steps}
+      </div>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = rows;
+}
+
+/**
+ * 미리보기 필터 처리
+ */
+function admApvFilterPreview(searchText) {
+  const bandFilter = (document.getElementById('apvPreviewBandFilter') || {}).value || '';
+  admApvRenderPreview(searchText || '', bandFilter);
+}
+
+/**
+ * 전체 IDP 합의라인 재생성
+ */
+function admApvRebuildAll() {
+  const logEl = document.getElementById('apvRebuildLog');
+  if (!logEl) return;
+
+  const allIdps  = typeof IDP_LIST  !== 'undefined' ? IDP_LIST  : [];
+  const allUsers = typeof USERS_DB   !== 'undefined' ? USERS_DB   : [];
+
+  // 재생성 대상: 합의 대기·진행중·라인 없는 건 모두
+  const targets = allIdps.filter(idp =>
+    !idp.approvalLine ||
+    idp.approvalLine.length === 0 ||
+    ['pending-approval', 'mid-approved'].includes(idp.status)
+  );
+
+  if (targets.length === 0) {
+    logEl.style.display = 'block';
+    logEl.style.background = '#F0FDF4';
+    logEl.style.color = '#059669';
+    logEl.style.border = '1px solid #BBF7D0';
+    logEl.style.borderRadius = '8px';
+    logEl.style.padding = '10px 14px';
+    logEl.innerHTML = `<i class="fas fa-check-circle" style="margin-right:5px"></i> 재생성할 IDP가 없습니다. 모든 합의라인이 최신 상태입니다.`;
+    admApvRenderSummary();
+    return;
+  }
+
+  let rebuilt = 0;
+  let skipped = 0;
+
+  targets.forEach(idp => {
+    const submitter = allUsers.find(u => u.id === idp.userId);
+    if (!submitter) { skipped++; return; }
+
+    // app.js의 getApprovalLine 함수 활용 (있으면)
+    if (typeof getApprovalLine === 'function') {
+      const newLine = getApprovalLine(submitter, allUsers);
+      if (newLine && newLine.length > 0) {
+        idp.approvalLine = newLine;
+        // 상태가 pending-approval이면 대기 상태로 리셋
+        if (idp.status === 'mid-approved') {
+          idp.status = 'pending-approval';
+        }
+        rebuilt++;
+      } else {
+        skipped++;
+      }
+    } else {
+      skipped++;
+    }
+  });
+
+  // 데이터 저장
+  if (typeof saveAllData === 'function') saveAllData();
+
+  logEl.style.display = 'block';
+  logEl.style.background = rebuilt > 0 ? '#EFF6FF' : '#FFF7ED';
+  logEl.style.color = rebuilt > 0 ? '#1D4ED8' : '#EA580C';
+  logEl.style.border = `1px solid ${rebuilt > 0 ? '#BFDBFE' : '#FED7AA'}`;
+  logEl.style.borderRadius = '8px';
+  logEl.style.padding = '10px 14px';
+  logEl.innerHTML = `
+    <i class="fas fa-check-circle" style="margin-right:5px"></i>
+    <strong>${rebuilt}건</strong> 재생성 완료
+    ${skipped > 0 ? ` · <span style="color:#9CA3AF">${skipped}건 건너뜀 (사용자 정보 없음)</span>` : ''}
+  `;
+
+  // 요약 및 미리보기 갱신
+  admApvRenderSummary();
+  admApvFilterPreview(
+    (document.getElementById('apvPreviewSearch') || {}).value || ''
+  );
+
+  admShowToast(`✅ ${rebuilt}건의 IDP 합의라인이 재생성되었습니다.`);
+}
